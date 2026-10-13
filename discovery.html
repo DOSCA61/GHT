@@ -109,6 +109,35 @@ textarea{width:100%;min-height:84px;resize:vertical}
 .addb{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .addb input{flex:1 1 260px;font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;min-width:0}
 @media (max-width:520px){.build li{grid-template-columns:auto minmax(0,1fr) auto}.build li .pill{grid-column:2;grid-row:2;justify-self:start}}
+#reportView{position:fixed;inset:0;z-index:50;background:var(--sunk);overflow:auto}
+.rep-bar{position:sticky;top:0;z-index:1;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;padding:12px 20px;padding-top:calc(12px + env(safe-area-inset-top,0px));background:var(--surface);border-bottom:1px solid var(--line)}
+.rep{max-width:860px;margin:24px auto 48px;background:#fff;color:#1d2420;padding:48px 52px;border-radius:4px;box-shadow:0 4px 18px rgba(0,0,0,.08);font-size:14.5px;line-height:1.5}
+@media (max-width:700px){.rep{padding:24px 18px;margin:12px}}
+.rep h1{font-size:34px;margin:0}
+.rep h2{font-size:24px;margin:34px 0 4px;padding-top:14px;border-top:2px solid #1d2420;break-after:avoid}
+.rep h3{font-size:15px;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.07em;font-family:var(--body);color:#3b6e5a;break-after:avoid}
+.rep .rmeta{color:#5d6760;margin:6px 0 0}
+.rep table{width:100%;border-collapse:collapse;margin-top:10px;font-variant-numeric:tabular-nums}
+.rep th,.rep td{text-align:left;padding:7px 8px;border-bottom:1px solid #d6d9d3;vertical-align:top}
+.rep th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#5d6760}
+.rep .q{margin:0 0 10px;break-inside:avoid}
+.rep .q b{display:block}
+.rep .ans{margin:2px 0 0 0;padding-left:12px;border-left:3px solid #3b6e5a;white-space:pre-wrap}
+.rep .none{color:#a86a12;font-style:italic;padding-left:12px;border-left:3px solid #e8c88e}
+.rep .att{font-size:13px;color:#5d6760;margin:4px 0 0 15px}
+.rep .att a{color:#3b6e5a}
+.rep ul{margin:4px 0 0;padding-left:20px}
+.rep li{margin:3px 0;break-inside:avoid}
+.rep .tg{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 7px;border-radius:999px;background:#e9ebe7;margin-right:6px}
+.rep .st{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px}
+.rep .s0{background:#e9ebe7;color:#5d6760}.rep .s1{background:#f6e7cc;color:#8a560e}.rep .s2{background:#dce5f1;color:#3a5f8f}.rep .s3{background:#d8eedf;color:#2f7a4c}
+.rep .foot{margin-top:40px;color:#5d6760;font-size:12.5px;border-top:1px solid #d6d9d3;padding-top:10px}
+@media print{
+  body.printing .wrap,body.printing .toast,body.printing .rep-bar{display:none!important}
+  body.printing #reportView{position:static;overflow:visible;background:#fff}
+  body.printing .rep{box-shadow:none;margin:0;max-width:none;padding:0}
+  @page{margin:16mm}
+}
 [hidden]{display:none!important}
 body{margin:0}
 img{max-width:100%}
@@ -130,6 +159,7 @@ img{max-width:100%}
     <label class="row" style="gap:8px;font-weight:600;font-size:14px">Your name <input id="whoIn" placeholder="e.g. Donal" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:7px 10px;width:180px"></label>
     <div class="row">
       <button class="btn sm" id="connBtn" type="button" aria-expanded="false" aria-controls="connPanel">Storage: this browser</button>
+      <button class="btn sm primary" id="reportBtn" type="button">Generate report</button>
       <button class="btn sm" id="copySum" type="button">Copy summary</button>
       <button class="btn sm" id="exportBtn" type="button">Export backup</button>
       <label class="btn sm">Import backup<input type="file" id="importIn" accept="application/json,.json" hidden></label>
@@ -155,6 +185,10 @@ img{max-width:100%}
   <p class="hint" style="margin-top:24px" id="storeHint"></p>
 </div>
 <div class="toast" id="toast" role="status"></div>
+<div id="reportView" hidden>
+  <div class="rep-bar"><b>Discovery report</b><div class="row"><button class="btn primary" type="button" id="repPrint">Print / save as PDF</button><button class="btn" type="button" id="repClose">Close</button></div></div>
+  <article class="rep" id="repBody"></article>
+</div>
 
 <script>
 (function(){
@@ -405,6 +439,47 @@ async function importBackup(f){
     await loadAll(); render(); toast(`Imported ${n} item${n===1?"":"s"}`);
   }catch(e){toast("Couldn't read that backup file.");}
 }
+function fileLink(it){
+  const name=esc(it.fileName||"file");
+  return it.fileId?`<a href="https://drive.google.com/file/d/${encodeURIComponent(it.fileId)}/view" target="_blank" rel="noopener">${name}</a>`:name;
+}
+async function generateReport(){
+  if(remote){toast("Loading the latest from the Google Sheet…");await refresh(true);}
+  const now=new Date(), date=now.toLocaleDateString("en-IE",{day:"numeric",month:"long",year:"numeric"});
+  let tq=0,ta=0,tb=0,tbd=0,tn=0;
+  const rows=MODS.map(m=>{const mm=modMeta(m.id),ans=mm.answers||{},asked=mm.asked||{};
+    const answered=m.qs.filter((q,i)=>(ans[i]||"").trim()||asked[i]).length;
+    const bl=items[m.id].filter(x=>x.kind==="build"),done=bl.filter(x=>x.done).length;
+    const notes=items[m.id].filter(x=>x.kind!=="build").length;
+    tq+=m.qs.length;ta+=answered;tb+=bl.length;tbd+=done;tn+=notes;
+    return `<tr><td>${esc(m.name)}</td><td><span class="st s${mm.status}">${STATUS[mm.status]}</span></td><td>${answered}/${m.qs.length}</td><td>${bl.length?`${bl.length-done} open / ${done} built`:"—"}</td><td>${notes||"—"}</td></tr>`;}).join("");
+  const agreed=MODS.filter(m=>modMeta(m.id).status===3).length;
+  const sections=MODS.map(m=>{
+    const mm=modMeta(m.id),ans=mm.answers||{},asked=mm.asked||{},all=items[m.id];
+    const qs=m.qs.map((q,i)=>{const a=(ans[i]||"").trim(),files=all.filter(x=>x.q===i);
+      return `<div class="q"><b>${i+1}. ${esc(q)}</b>${a?`<div class="ans">${esc(a)}</div>`:asked[i]?`<div class="none">Discussed, no answer recorded</div>`:`<div class="none">Not yet answered</div>`}${files.length?`<div class="att">Attached: ${files.map(fileLink).join(", ")}</div>`:""}</div>`;}).join("");
+    const bl=all.filter(x=>x.kind==="build").slice().reverse();
+    const order=["Requirement","Decision","Change","Open question"];
+    const build=bl.length?`<h3>Build list</h3><ul>${bl.sort((a,b)=>order.indexOf(a.tag)-order.indexOf(b.tag)).map(b=>`<li><span class="tg">${esc(b.tag||"Requirement")}</span>${esc(b.text)}${b.done?" <b style=\"color:#2f7a4c\">✓ built</b>":""}</li>`).join("")}</ul>`:"";
+    const nt=all.filter(x=>x.kind!=="build"&&x.q==null).slice().reverse();
+    const notes=nt.length?`<h3>Notes, documents and voice notes</h3><ul>${nt.map(it=>`<li>${it.kind==="voice"?"Voice note":it.kind==="file"?"Document":"Note"}${it.author?` · ${esc(it.author)}`:""} · ${when(it.createdAt)}${it.text?`: ${esc(it.text)}`:""}${it.fileName?` [${fileLink(it)}]`:""}</li>`).join("")}</ul>`:"";
+    return `<h2>${esc(m.name)} <span class="st s${mm.status}" style="vertical-align:middle">${STATUS[mm.status]}</span></h2><p class="rmeta">${esc(m.sum)}</p><h3>Questions and answers</h3>${qs}${build}${notes}`;
+  }).join("");
+  const open=MODS.flatMap(m=>{const mm=modMeta(m.id);return m.qs.map((q,i)=>((mm.answers||{})[i]||"").trim()||(mm.asked||{})[i]?null:`<li><b>${esc(m.name)}:</b> ${esc(q)}</li>`).filter(Boolean);});
+  const oq=MODS.flatMap(m=>items[m.id].filter(x=>x.kind==="build"&&x.tag==="Open question"&&!x.done).map(x=>`<li><b>${esc(m.name)}:</b> ${esc(x.text)}</li>`));
+  $("#repBody").innerHTML=`
+    <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-end;border-bottom:3px solid #1d2420;padding-bottom:14px">
+      <div><div style="font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#3b6e5a">GHT Job Manager</div><h1>Discovery report</h1></div>
+      <div style="text-align:right;color:#5d6760;font-size:13px">${date}<br>Prepared by Quantum Build Consultancy Ltd${who?`<br>${esc(who)}`:""}</div>
+    </div>
+    <p style="margin:16px 0 0;font-size:16px"><b>${agreed} of ${MODS.length}</b> modules agreed · <b>${ta} of ${tq}</b> questions covered · <b>${tb-tbd}</b> build items open, <b>${tbd}</b> built · <b>${tn}</b> notes, documents and voice notes.</p>
+    <table><thead><tr><th>Module</th><th>Status</th><th>Questions</th><th>Build items</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table>
+    ${oq.length?`<h3 style="margin-top:22px">Open questions to resolve</h3><ul>${oq.join("")}</ul>`:""}
+    ${open.length?`<h3 style="margin-top:22px">Questions not yet covered (${open.length})</h3><ul>${open.join("")}</ul>`:""}
+    ${sections}
+    <div class="foot">Generated from the GHT Discovery Board on ${now.toLocaleString("en-IE")}. ${remote?"Attachment links open in Google Drive for people the folder is shared with.":"Attachments are stored in the browser they were added in."}</div>`;
+  $("#reportView").hidden=false; $("#repClose").focus();
+}
 function copySummary(){
   const lines=["# GHT discovery summary",""];
   MODS.forEach(m=>{const mm=modMeta(m.id);lines.push(`## ${m.name} (${STATUS[mm.status]})`);
@@ -434,6 +509,9 @@ document.addEventListener("click",async e=>{
     return;
   }
   if(b.id==="copySum"){copySummary();return;}
+  if(b.id==="reportBtn"){generateReport();return;}
+  if(b.id==="repClose"){$("#reportView").hidden=true;$("#reportBtn").focus();return;}
+  if(b.id==="repPrint"){document.body.classList.add("printing");window.print();return;}
   if(b.id==="connBtn"){const p=$("#connPanel");p.hidden=!p.hidden;b.setAttribute("aria-expanded",String(!p.hidden));if(!p.hidden){$("#connUrl").value=remote?remote.url:"";$("#connKey").value=remote?remote.key:"";$("#connUrl").focus();}return;}
   if(b.id==="connGo"){connect();return;}
   if(b.id==="connOff"){remote=null;try{localStorage.removeItem("ght-disc-remote");}catch(_){}MODS.forEach(x=>items[x.id]=[]);await refresh(true);toast("Using this browser only");return;}
@@ -478,6 +556,8 @@ document.addEventListener("change",async e=>{
 });
 $("#whoIn").value=who;
 $("#whoIn").addEventListener("input",e=>{who=e.target.value.trim();try{localStorage.setItem("ght-disc-who",who);}catch(_){}});
+window.addEventListener("afterprint",()=>document.body.classList.remove("printing"));
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#reportView").hidden)$("#reportView").hidden=true;});
 window.addEventListener("beforeunload",e=>{if(rec){e.preventDefault();e.returnValue="";}});
 
 render();
