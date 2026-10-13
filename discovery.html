@@ -89,6 +89,14 @@ textarea{width:100%;min-height:84px;resize:vertical}
 .qs li{display:flex;flex-direction:column;gap:4px}
 .qs textarea.ans{min-height:40px;font-size:14.5px;padding:6px 10px;margin-left:28px;width:calc(100% - 28px);background:var(--surface)}
 .qs textarea.ans:placeholder-shown{border-style:dashed}
+.qatt{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:28px}
+.qatt .btn.sm{min-height:30px;padding:3px 10px;font-weight:500}
+.chip-f{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:3px 4px 3px 8px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:13px}
+.chip-f a{color:var(--accent);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.chip-f img{width:22px;height:22px;object-fit:cover;border-radius:4px;margin:0}
+.chip-f button{all:unset;cursor:pointer;padding:2px 6px;border-radius:999px;color:var(--muted);font-size:12px}
+.chip-f button:hover{background:var(--sunk);color:var(--fg)}
+.chip-f button:focus-visible{outline:2px solid var(--accent)}
 .build{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
 .build li{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r)}
 .build li.done .bt{color:var(--muted);text-decoration:line-through}
@@ -212,7 +220,7 @@ function saveAnswer(i,val){
   ansTimer=setTimeout(async()=>{try{await putMeta(mod,meta[mod]);renderIndex();}catch(e){toast("Couldn't save. Is browser storage blocked?");}},400);
 }
 function _renderSheet(){
-  const m=MODS.find(x=>x.id===sel), mm=modMeta(sel), all=items[sel], list=all.filter(x=>x.kind!=="build"), builds=all.filter(x=>x.kind==="build").slice().reverse(), canRec=!!(navigator.mediaDevices&&window.MediaRecorder);
+  const m=MODS.find(x=>x.id===sel), mm=modMeta(sel), all=items[sel], list=all.filter(x=>x.kind!=="build"&&x.q==null), qfiles=all.filter(x=>x.q!=null).slice().reverse(), builds=all.filter(x=>x.kind==="build").slice().reverse(), canRec=!!(navigator.mediaDevices&&window.MediaRecorder);
   $("#sheet").innerHTML=`
   <section class="panel">
     <div class="row between"><div style="min-width:0;flex:1 1 300px"><h2>${esc(m.name)}</h2><p class="sub">${esc(m.sum)}</p></div>
@@ -220,8 +228,8 @@ function _renderSheet(){
   </section>
   <section class="panel">
     <h3>Questions to cover</h3>
-    <ul class="qs">${m.qs.map((q,i)=>{const on=!!(mm.asked||{})[i],ans=(mm.answers||{})[i]||"";return `<li><label class="${on?"done":""}" id="ql-${i}"><input type="checkbox" id="q-${sel}-${i}" data-q="${i}" ${on?"checked":""}><span>${esc(q)}</span></label><textarea class="ans" id="a-${sel}-${i}" data-ans="${i}" rows="1" placeholder="Answer…" aria-label="Answer: ${esc(q)}">${esc(ans)}</textarea></li>`;}).join("")}</ul>
-    <p class="hint" style="margin:8px 0 0">Answers save as you type. Typing an answer ticks the question.</p>
+    <ul class="qs">${m.qs.map((q,i)=>{const on=!!(mm.asked||{})[i],ans=(mm.answers||{})[i]||"";return `<li><label class="${on?"done":""}" id="ql-${i}"><input type="checkbox" id="q-${sel}-${i}" data-q="${i}" ${on?"checked":""}><span>${esc(q)}</span></label><textarea class="ans" id="a-${sel}-${i}" data-ans="${i}" rows="1" placeholder="Answer…" aria-label="Answer: ${esc(q)}">${esc(ans)}</textarea><div class="qatt">${qfiles.filter(f=>f.q===i).map(chipHtml).join("")}<label class="btn sm">${ICON.file}Attach<input type="file" id="qf-${sel}-${i}" data-qfile="${i}" multiple hidden></label></div></li>`;}).join("")}</ul>
+    <p class="hint" style="margin:8px 0 0">Answers save as you type. Typing an answer or attaching a file ticks the question. Attach any file: sample quotes, survey sheets, photos, recordings.</p>
   </section>
   <section class="panel">
     <div class="row between"><h3>Build list</h3><span class="mono" style="color:var(--muted)">${builds.filter(b=>b.done).length}/${builds.length} built</span></div>
@@ -244,6 +252,10 @@ function _renderSheet(){
     <div class="row between"><h3>Notes and files</h3><span class="mono" style="color:var(--muted)">${list.length} item${list.length===1?"":"s"}</span></div>
     <div class="feed" style="margin-top:10px">${list.length?list.map(itemHtml).join(""):`<div class="empty">Nothing yet for ${esc(m.name)}. Notes, sample documents and voice notes you add appear here.</div>`}</div>
   </section>`;
+}
+function chipHtml(it){
+  const u=blobUrl(it), img=/^image\//.test(it.contentType||"");
+  return `<span class="chip-f">${img?`<img src="${u}" alt="">`:""}<a href="${u}" download="${esc(it.fileName)}" title="${esc(it.fileName)}">${esc(it.fileName)}</a><button type="button" data-del="${esc(it.id)}" aria-label="Remove ${esc(it.fileName)}">${it._confirm?"Remove?":"✕"}</button></span>`;
 }
 function itemHtml(it){
   let body="";
@@ -318,10 +330,10 @@ function copySummary(){
   const lines=["# GHT discovery summary",""];
   MODS.forEach(m=>{const mm=modMeta(m.id);lines.push(`## ${m.name} (${STATUS[mm.status]})`);
     lines.push("### Questions");
-    m.qs.forEach((q,i)=>{lines.push(`- [${(mm.asked||{})[i]?"x":" "}] ${q}`);const a=((mm.answers||{})[i]||"").trim();if(a)lines.push(`    - Answer: ${a.replace(/\n+/g," / ")}`);});
+    m.qs.forEach((q,i)=>{lines.push(`- [${(mm.asked||{})[i]?"x":" "}] ${q}`);const a=((mm.answers||{})[i]||"").trim();if(a)lines.push(`    - Answer: ${a.replace(/\n+/g," / ")}`);const fs=items[m.id].filter(x=>x.q===i);if(fs.length)lines.push(`    - Attached: ${fs.map(x=>x.fileName).join(", ")}`);});
     const bl=items[m.id].filter(x=>x.kind==="build").slice().reverse();
     if(bl.length){lines.push("### Build list");bl.forEach(b=>lines.push(`- [${b.done?"x":" "}] ${b.tag||"Requirement"}: ${b.text}`));}
-    const nt=items[m.id].filter(x=>x.kind!=="build");
+    const nt=items[m.id].filter(x=>x.kind!=="build"&&x.q==null);
     if(nt.length)lines.push("### Notes and files");
     nt.slice().reverse().forEach(it=>lines.push(`- ${it.kind==="note"?"Note":it.kind==="voice"?"Voice note":"Document"} (${it.author||"Someone"}, ${when(it.createdAt)}): ${it.text||""}${it.fileName?` [${it.fileName}]`:""}`));
     lines.push("");});
@@ -365,6 +377,16 @@ document.addEventListener("change",async e=>{
 document.addEventListener("change",async e=>{
   const t=e.target;
   if(t.id==="stSel"){await saveMeta({status:+t.value});return;}
+  if(t.dataset.qfile!==undefined&&t.files.length){
+    const qi=+t.dataset.qfile, files=[...t.files]; t.value="";
+    for(const f of files){
+      const it={id:uid(),mod:sel,q:qi,kind:/^audio\//.test(f.type)?"voice":"file",blob:f,contentType:f.type,fileName:f.name,author:who||"",createdAt:new Date().toISOString(),text:""};
+      try{await putItem(it);items[sel].unshift(it);}catch(e){toast(e&&e.name==="QuotaExceededError"?"Browser storage is full. Export a backup and delete large files.":"Couldn't save that file.");return;}
+    }
+    const mm=modMeta(sel); if(!(mm.asked||{})[qi]){const asked=Object.assign({},mm.asked||{});asked[qi]=true;await saveMeta({asked});} else render();
+    toast(files.length>1?`${files.length} files attached`:"File attached");
+    return;
+  }
   if(t.dataset.q!==undefined){const asked=Object.assign({},modMeta(sel).asked||{});asked[t.dataset.q]=t.checked;await saveMeta({asked});return;}
   if(t.id==="fileIn"&&t.files[0]){const f=t.files[0];await addItem({kind:"file",blob:f,contentType:f.type,fileName:f.name,text:takeCaption()});t.value="";return;}
   if(t.id==="voiceIn"&&t.files[0]){const f=t.files[0];await addItem({kind:"voice",blob:f,contentType:f.type,fileName:f.name,text:takeCaption()});t.value="";return;}
