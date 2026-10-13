@@ -4,6 +4,14 @@ Single-file prototype of the GHT job management system: Dashboard, Projects (wit
 
 Built by Quantum Build Consultancy Ltd.
 
+## Discovery Board (`discovery.html`)
+
+Requirements workspace for the discovery session: per-module questions to tick off, status (Not started → Agreed), notes, sample documents (any file type) and voice notes recorded in the browser or uploaded. **Copy summary** turns everything into a structured list for the build spec.
+
+Everything is stored in the browser on that device (IndexedDB) and never uploaded to GitHub. Use **Export backup** to save a `.json` copy (includes files and audio) and **Import backup** to restore it on another device.
+
+Live at `https://<your-github-user>.github.io/GHT/discovery.html`, also linked from the prototype's left rail.
+
 ## Deploy on GitHub Pages
 
 1. Create a new repository (private is fine on a paid plan; public on free), e.g. `GHT`.

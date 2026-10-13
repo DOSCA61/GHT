@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en-IE">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>GHT Discovery Board</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: module index on the left with discussion status, selected module's working sheet on the right (questions, notes, files, voice notes) */
+:root{
+  --bg:#f3f4f2; --surface:#ffffff; --sunk:#e9ebe7; --line:#d6d9d3; --fg:#1d2420; --muted:#5d6760;
+  --accent:#3b6e5a; --accent-ink:#ffffff; --accent-soft:#dce9e2;
+  --warn:#a86a12; --warn-soft:#f6e7cc; --bad:#a83a2c; --bad-soft:#f5dcd7; --ok:#2f7a4c; --ok-soft:#d8eedf; --info:#3a5f8f; --info-soft:#dce5f1;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141917; --surface:#1c2320; --sunk:#232b27; --line:#33403a; --fg:#e6ebe7; --muted:#9aa69f;
+  --accent:#7fbf9f; --accent-ink:#0f1512; --accent-soft:#24382e;
+  --warn:#e3a849; --warn-soft:#3a2d14; --bad:#ec8576; --bad-soft:#3d1f1a; --ok:#7fcf9a; --ok-soft:#1d3426; --info:#8fb3e3; --info-soft:#1e2b3d;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --surface:#1c2320; --sunk:#232b27; --line:#33403a; --fg:#e6ebe7; --muted:#9aa69f;
+  --accent:#7fbf9f; --accent-ink:#0f1512; --accent-soft:#24382e;
+  --warn:#e3a849; --warn-soft:#3a2d14; --bad:#ec8576; --bad-soft:#3d1f1a; --ok:#7fcf9a; --ok-soft:#1d3426; --info:#8fb3e3; --info-soft:#1e2b3d;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1240px;margin:0 auto;padding-block:24px 56px;padding-inline:20px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;align-items:end;justify-content:space-between;margin-bottom:20px}
+h1{font-family:var(--display);font-weight:700;font-size:36px;line-height:1.05;margin:0;letter-spacing:.01em;text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:28px;margin:0}
+h3{font-family:var(--display);font-weight:600;font-size:19px;margin:0;letter-spacing:.02em}
+.sub{color:var(--muted);margin:4px 0 0}
+.layout{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+aside{flex:1 1 260px;max-width:320px;display:flex;flex-direction:column;gap:6px}
+@media (max-width:760px){aside{max-width:none}}
+.mod{all:unset;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 12px;border-radius:var(--r);border:1px solid transparent;background:var(--surface)}
+.mod:hover{border-color:var(--line)}
+.mod[aria-current="true"]{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.mod:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mod b{font-weight:600}
+.mod .meta{grid-column:1/-1;font-size:12.5px;color:var(--muted);font-family:var(--mono)}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;align-self:start}
+.st-0{background:var(--sunk);color:var(--muted)}
+.st-1{background:var(--warn-soft);color:var(--warn)}
+.st-2{background:var(--info-soft);color:var(--info)}
+.st-3{background:var(--ok-soft);color:var(--ok)}
+main{flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.between{justify-content:space-between}
+.btn{font:inherit;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:8px 14px;border-radius:var(--r);display:inline-flex;gap:6px;align-items:center;min-height:40px}
+.btn:hover{background:var(--sunk)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:4px 10px;font-size:13px;min-height:32px}
+.btn:disabled{opacity:.55;cursor:default}
+.btn:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible,label.btn:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+select,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px}
+textarea{width:100%;min-height:84px;resize:vertical}
+.qs{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.qs label{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:var(--r);background:var(--sunk);cursor:pointer}
+.qs input{margin-top:3px;width:18px;height:18px;flex:0 0 auto;accent-color:var(--accent)}
+.qs .done span{color:var(--muted);text-decoration:line-through}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.feed{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.item{display:grid;grid-template-columns:36px minmax(0,1fr);gap:10px;padding:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.ico{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--sunk);color:var(--muted)}
+.ico svg{width:18px;height:18px}
+.item .who{font-size:13px;color:var(--muted)}
+.item .who b{color:var(--fg);font-weight:600}
+.item p{margin:4px 0 0;white-space:pre-wrap;word-wrap:break-word}
+.item img{display:block;max-width:100%;max-height:280px;margin-top:8px;border-radius:4px;border:1px solid var(--line)}
+.item audio,.item video{display:block;width:100%;max-width:440px;margin-top:8px}
+.item a.file{display:inline-flex;margin-top:6px;font-weight:600;color:var(--accent);word-break:break-all}
+.empty{color:var(--muted);padding:22px;text-align:center;background:var(--sunk);border-radius:var(--r)}
+.notice{padding:10px 12px;border-radius:var(--r);background:var(--warn-soft);color:var(--warn);font-size:14px}
+.bar{height:8px;background:var(--sunk);border-radius:99px;overflow:hidden;min-width:120px;flex:1}
+.bar i{display:block;height:100%;background:var(--accent)}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translate(-50%,8px);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:var(--r);font-weight:600;opacity:0;transition:.2s;pointer-events:none;max-width:calc(100vw - 32px)}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.hint{font-size:13px;color:var(--muted)}
+.mono{font-family:var(--mono);font-size:13px}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+
+[hidden]{display:none!important}
+body{margin:0}
+img{max-width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>GHT Discovery Board</h1>
+      <p class="sub">Requirements for each module of the GHT Job Manager. Tick off questions, add notes, attach sample documents and record voice notes.</p>
+    </div>
+    <div class="row" style="flex:1 1 300px;max-width:460px">
+      <div class="bar" title="Modules agreed"><i id="progBar" style="width:0%"></i></div>
+      <span class="mono" id="progTxt">0 of 8 agreed</span>
+    </div>
+  </header>
+  <div class="panel row between" style="margin-bottom:12px">
+    <label class="row" style="gap:8px;font-weight:600;font-size:14px">Your name <input id="whoIn" placeholder="e.g. Donal" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:7px 10px;width:180px"></label>
+    <div class="row">
+      <button class="btn sm" id="copySum" type="button">Copy summary</button>
+      <button class="btn sm" id="exportBtn" type="button">Export backup</button>
+      <label class="btn sm">Import backup<input type="file" id="importIn" accept="application/json,.json" hidden></label>
+      <a class="btn sm" href="./" style="text-decoration:none">Open prototype</a>
+    </div>
+  </div>
+  <div id="status" class="notice" hidden></div>
+  <div class="layout" style="margin-top:12px">
+    <aside id="mods" aria-label="Modules"></aside>
+    <main id="sheet"></main>
+  </div>
+  <p class="hint" style="margin-top:24px">Notes, files and voice notes are saved in this browser on this device only. Use Export backup to keep a copy or move it to another device. Nothing is uploaded to GitHub.</p>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+const MODS=[
+ {id:"dashboard",name:"Dashboard",sum:"Overview of active projects, upcoming works, delayed jobs and overall status.",qs:["What do you check first every morning?","What makes a job 'delayed' for you?","Which figures should the owner see that the office doesn't need?","Do you want a weekly summary sent by email?"]},
+ {id:"projects",name:"Projects",sum:"Every property: customer, address, Eircode, status, dates, documents, Google Maps.",qs:["Which job statuses do you use today?","What customer details must every job have?","Is the grant applicant ever different from the homeowner?","How do you number jobs now?","How many live jobs do you have at once, typically?"]},
+ {id:"measurements",name:"Measurements",sum:"Front, rear and gable elevations, m², insulation thickness and technical spec.",qs:["How are measurements taken on site today (paper, app, laser)?","How do you name elevations on detached and terraced houses?","How do you handle openings: measured each, or a percentage?","Can one house have more than one insulation thickness or system?","Please share 2–3 completed survey sheets."]},
+ {id:"quotes",name:"Quotes",sum:"Editable templates, automatic pricing from m² and rates, extras, PDF quotations.",qs:["Please share your current rate card.","What extras appear on quotes (cills, beads, scaffold, fixtures, other)?","How is VAT shown, and at what rate?","Do quotes show the SEAI grant amount or deduction?","What terms, validity and payment schedule go on the quote?","Please share 3 recent quotes you sent."]},
+ {id:"teams",name:"Teams",sum:"Employees and subcontractors, team assignment and responsibilities.",qs:["List your crews and subcontractors.","Who assigns teams to jobs?","Do crews or subbies need to log in, or only office staff?","Do you need to record each person's certifications (Safe Pass, manual handling)?"]},
+ {id:"materials",name:"Materials",sum:"Materials per project: quantities, suppliers, orders, delivery status.",qs:["Who are your main suppliers for boards, adhesive, mesh and render?","Who places orders, and how (phone, email, portal)?","Do deliveries go to site or to your yard?","What waste allowance do you work to?","Please share a typical order or materials list."]},
+ {id:"documents",name:"SEAI / NSAI Documents",sum:"Technical certificates, declarations of conformity, BER, warranties and compliance documents.",qs:["Which SEAI route do you work under (One Stop Shop, individual grants, both)?","Which documents must be on file before work starts?","Which documents are needed to close a job and claim the grant?","Where are these documents kept today?","Please share a complete compliance file from a past job."]},
+ {id:"calendar",name:"Calendar",sum:"Scheduling: start and completion dates, deadlines and team allocations.",qs:["How do you plan the schedule today (whiteboard, calendar, spreadsheet)?","How do you handle weather days?","Should crews see the calendar on their phones?","Do you want it synced with Google Calendar?"]}
+];
+const STATUS=["Not started","In discussion","Needs follow-up","Agreed"];
+const ICON={
+ note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"/></svg>',
+ file:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg>',
+ voice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>'
+};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const when=iso=>{try{return new Date(iso).toLocaleString("en-IE",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){return"";}};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function toast(t){const el=$("#toast");el.textContent=t;el.classList.add("on");clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove("on"),2400);}
+function note(t){const s=$("#status");s.hidden=!t;s.textContent=t||"";}
+
+// ---------- storage (IndexedDB, this browser only) ----------
+let idb=null;
+function openDb(){return new Promise((res,rej)=>{const r=indexedDB.open("ght-discovery",1);r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore("meta");d.createObjectStore("items",{keyPath:"id"});};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+function tx(store,mode,fn){return new Promise((res,rej)=>{const t=idb.transaction(store,mode);const s=t.objectStore(store);let out;const r=fn(s);if(r)r.onsuccess=()=>{out=r.result;};t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error);});}
+const putItem=it=>tx("items","readwrite",s=>s.put(it));
+const delItem=id=>tx("items","readwrite",s=>s.delete(id));
+const putMeta=(id,v)=>tx("meta","readwrite",s=>s.put(v,id));
+async function loadAll(){
+  const all=await tx("items","readonly",s=>s.getAll());
+  MODS.forEach(m=>items[m.id]=[]);
+  (all||[]).forEach(it=>{if(items[it.mod])items[it.mod].push(it);});
+  MODS.forEach(m=>items[m.id].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)));
+  for(const m of MODS){const v=await tx("meta","readonly",s=>s.get(m.id));if(v)meta[m.id]=v;}
+}
+
+let sel="quotes"; try{const h=location.hash.slice(1);if(MODS.some(m=>m.id===h))sel=h;}catch(e){}
+const items={}; MODS.forEach(m=>items[m.id]=[]);
+const meta={};
+const urls={};
+let who=""; try{who=localStorage.getItem("ght-disc-who")||"";}catch(e){}
+let rec=null;
+
+function modMeta(id){return meta[id]||{status:0,asked:{}};}
+function blobUrl(it){if(!it.blob)return"";if(!urls[it.id])urls[it.id]=URL.createObjectURL(it.blob);return urls[it.id];}
+function renderIndex(){
+  const agreed=MODS.filter(m=>modMeta(m.id).status===3).length;
+  $("#progBar").style.width=(agreed/MODS.length*100)+"%";
+  $("#progTxt").textContent=`${agreed} of ${MODS.length} agreed`;
+  $("#mods").innerHTML=MODS.map(m=>{const mm=modMeta(m.id),n=items[m.id].length,asked=Object.values(mm.asked||{}).filter(Boolean).length;
+    return `<button class="mod" type="button" data-mod="${m.id}" aria-current="${m.id===sel}"><b>${esc(m.name)}</b><span class="pill st-${mm.status}">${STATUS[mm.status]}</span><span class="meta">${asked}/${m.qs.length} asked · ${n} item${n===1?"":"s"}</span></button>`;}).join("");
+}
+let draftFor=null;
+function renderSheet(){
+  const ta0=$("#noteIn"), draft=ta0&&draftFor===sel?ta0.value:"", hadFocus=ta0&&document.activeElement===ta0;
+  draftFor=sel; _renderSheet();
+  const ta=$("#noteIn"); if(ta&&draft)ta.value=draft; if(ta&&hadFocus)ta.focus();
+}
+function _renderSheet(){
+  const m=MODS.find(x=>x.id===sel), mm=modMeta(sel), list=items[sel], canRec=!!(navigator.mediaDevices&&window.MediaRecorder);
+  $("#sheet").innerHTML=`
+  <section class="panel">
+    <div class="row between"><div style="min-width:0;flex:1 1 300px"><h2>${esc(m.name)}</h2><p class="sub">${esc(m.sum)}</p></div>
+      <label class="row" style="gap:8px;font-weight:600;font-size:14px">Status <select id="stSel">${STATUS.map((s,i)=>`<option value="${i}" ${i===mm.status?"selected":""}>${s}</option>`).join("")}</select></label></div>
+  </section>
+  <section class="panel">
+    <h3>Questions to cover</h3>
+    <ul class="qs">${m.qs.map((q,i)=>{const on=!!(mm.asked||{})[i];return `<li><label class="${on?"done":""}"><input type="checkbox" id="q-${sel}-${i}" data-q="${i}" ${on?"checked":""}><span>${esc(q)}</span></label></li>`;}).join("")}</ul>
+  </section>
+  <section class="panel">
+    <h3>Add to ${esc(m.name)}</h3>
+    <textarea id="noteIn" placeholder="Type a note, decision or answer from the client…"></textarea>
+    <div class="tools">
+      <button class="btn primary" type="button" id="addNote">Add note</button>
+      <label class="btn">${ICON.file}Attach document<input type="file" id="fileIn" hidden></label>
+      ${canRec?`<button class="btn" type="button" id="recBtn">${ICON.voice}<span id="recTxt">${rec?"Stop recording":"Record voice note"}</span></button>`:""}
+      <label class="btn">${ICON.voice}Upload audio<input type="file" id="voiceIn" accept="audio/*,video/mp4,video/webm" hidden></label>
+    </div>
+    <p class="hint" style="margin:10px 0 0">Any document type works: PDF, Word, Excel, photos. Typed text is saved as the caption when you attach a file or finish a recording.${canRec?" Recording asks for microphone access the first time.":""}</p>
+  </section>
+  <section class="panel">
+    <div class="row between"><h3>Notes and files</h3><span class="mono" style="color:var(--muted)">${list.length} item${list.length===1?"":"s"}</span></div>
+    <div class="feed" style="margin-top:10px">${list.length?list.map(itemHtml).join(""):`<div class="empty">Nothing yet for ${esc(m.name)}. Notes, sample documents and voice notes you add appear here.</div>`}</div>
+  </section>`;
+}
+function itemHtml(it){
+  let body="";
+  if(it.text) body+=`<p>${esc(it.text)}</p>`;
+  if(it.kind==="file"){
+    const u=blobUrl(it);
+    if(/^image\//.test(it.contentType||"")) body+=`<img src="${u}" alt="${esc(it.fileName)}" loading="lazy">`;
+    body+=`<a class="file" href="${u}" download="${esc(it.fileName)}">${esc(it.fileName)}</a>`;
+  }
+  if(it.kind==="voice") body+=`<audio controls preload="metadata" src="${blobUrl(it)}"></audio><div class="hint">${esc(it.fileName||"Voice note")}${it.seconds?` · ${Math.floor(it.seconds/60)}:${String(it.seconds%60).padStart(2,"0")}`:""} · <a href="${blobUrl(it)}" download="${esc(it.fileName||"voice-note")}">Download</a></div>`;
+  return `<article class="item"><div class="ico">${ICON[it.kind]||ICON.note}</div><div style="min-width:0">
+    <div class="row between"><span class="who"><b>${esc(it.author||"Someone")}</b> · ${when(it.createdAt)}</span><button class="btn sm" type="button" data-del="${esc(it.id)}">${it._confirm?"Click again to delete":"Delete"}</button></div>
+    ${body}</div></article>`;
+}
+function render(){renderIndex();renderSheet();}
+
+async function saveMeta(patch){meta[sel]=Object.assign({},modMeta(sel),patch);render();try{await putMeta(sel,meta[sel]);}catch(e){toast("Couldn't save. Is browser storage blocked?");}}
+async function addItem(data){
+  const it=Object.assign({id:uid(),mod:sel,author:who||"",createdAt:new Date().toISOString(),text:""},data);
+  try{await putItem(it);}catch(e){toast(e&&e.name==="QuotaExceededError"?"Browser storage is full. Export a backup and delete large files.":"Couldn't save. Is browser storage blocked?");return false;}
+  items[sel].unshift(it); render();
+  toast(it.kind==="voice"?"Voice note saved":it.kind==="file"?"Document attached":"Note added");
+  return true;
+}
+function takeCaption(){const ta=$("#noteIn");const c=ta?ta.value.trim():"";if(ta)ta.value="";return c;}
+
+async function toggleRec(){
+  if(rec){rec.mr.stop();return;}
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:true});}
+  catch(e){toast("Microphone access was blocked. Allow it in the browser's site settings, or upload a recording instead.");return;}
+  const type=["audio/webm;codecs=opus","audio/webm","audio/mp4","audio/ogg"].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||"";
+  const mr=type?new MediaRecorder(stream,{mimeType:type}):new MediaRecorder(stream);
+  const chunks=[], started=Date.now(), forMod=sel;
+  rec={mr,timer:setInterval(()=>{const s=Math.round((Date.now()-started)/1000);const t=$("#recTxt");if(t)t.textContent=`Stop recording · ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;},500)};
+  mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
+  mr.onstop=async()=>{
+    clearInterval(rec.timer); rec=null; stream.getTracks().forEach(t=>t.stop());
+    const blob=new Blob(chunks,{type:mr.mimeType||type||"audio/webm"});
+    const seconds=Math.round((Date.now()-started)/1000);
+    const ext=/mp4/.test(blob.type)?"m4a":/ogg/.test(blob.type)?"ogg":"webm";
+    if(!blob.size){toast("Nothing was recorded. Try again.");renderSheet();return;}
+    const prev=sel; sel=forMod;
+    await addItem({kind:"voice",blob,contentType:blob.type,fileName:`${forMod}-voice-${new Date().toISOString().slice(0,16).replace(/[:T]/g,"-")}.${ext}`,seconds,text:takeCaption()});
+    sel=prev; render();
+  };
+  mr.start(1000); renderSheet(); toast("Recording… tap Stop when finished");
+}
+
+// ---------- backup ----------
+const toB64=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]||"");r.onerror=()=>rej(r.error);r.readAsDataURL(b);});
+function fromB64(s,type){const bin=atob(s);const a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:type||"application/octet-stream"});}
+async function exportBackup(){
+  toast("Preparing backup…");
+  const out={app:"ght-discovery",version:1,exportedAt:new Date().toISOString(),meta,items:[]};
+  for(const m of MODS) for(const it of items[m.id]){const c=Object.assign({},it);delete c._confirm;if(it.blob){c.blob=await toB64(it.blob);c.blobType=it.blob.type;}out.items.push(c);}
+  const blob=new Blob([JSON.stringify(out)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`ght-discovery-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
+  toast("Backup downloaded");
+}
+async function importBackup(f){
+  try{
+    const j=JSON.parse(await f.text());
+    if(j.app!=="ght-discovery"){toast("That isn't a GHT Discovery backup file.");return;}
+    let n=0;
+    for(const c of j.items||[]){const it=Object.assign({},c);if(c.blob)it.blob=fromB64(c.blob,c.blobType);delete it.blobType;await putItem(it);n++;}
+    for(const [k,v] of Object.entries(j.meta||{})){if(MODS.some(m=>m.id===k))await putMeta(k,v);}
+    await loadAll(); render(); toast(`Imported ${n} item${n===1?"":"s"}`);
+  }catch(e){toast("Couldn't read that backup file.");}
+}
+function copySummary(){
+  const lines=["# GHT discovery summary",""];
+  MODS.forEach(m=>{const mm=modMeta(m.id);lines.push(`## ${m.name} (${STATUS[mm.status]})`);
+    m.qs.forEach((q,i)=>lines.push(`- [${(mm.asked||{})[i]?"x":" "}] ${q}`));
+    items[m.id].slice().reverse().forEach(it=>lines.push(`- ${it.kind==="note"?"Note":it.kind==="voice"?"Voice note":"Document"} (${it.author||"Someone"}, ${when(it.createdAt)}): ${it.text||""}${it.fileName?` [${it.fileName}]`:""}`));
+    lines.push("");});
+  const txt=lines.join("\n");
+  const fallback=()=>{const ta=document.createElement("textarea");ta.value=txt;ta.setAttribute("aria-label","Discovery summary");ta.style.cssText="width:100%;min-height:200px;margin-top:12px";$("#sheet").prepend(ta);ta.select();toast("Select all and copy the summary");};
+  try{navigator.clipboard.writeText(txt).then(()=>toast("Summary copied"),fallback);}catch(e){fallback();}
+}
+
+// ---------- events ----------
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.mod){if(rec){toast("Stop the recording first");return;}sel=b.dataset.mod;try{history.replaceState(null,"","#"+sel);}catch(_){}render();return;}
+  if(b.id==="addNote"){const t=$("#noteIn").value.trim();if(!t){toast("Type a note first");return;}if(await addItem({kind:"note",text:t}))$("#noteIn").value="";return;}
+  if(b.id==="recBtn"){toggleRec();return;}
+  if(b.dataset.del){
+    const it=items[sel].find(x=>x.id===b.dataset.del);if(!it)return;
+    if(!it._confirm){it._confirm=true;renderSheet();setTimeout(()=>{if(it._confirm){it._confirm=false;renderSheet();}},4000);return;}
+    try{await delItem(it.id);items[sel]=items[sel].filter(x=>x.id!==it.id);if(urls[it.id]){URL.revokeObjectURL(urls[it.id]);delete urls[it.id];}render();toast("Deleted");}catch(err){toast("Couldn't delete that item.");}
+    return;
+  }
+  if(b.id==="copySum"){copySummary();return;}
+  if(b.id==="exportBtn"){exportBackup();return;}
+});
+document.addEventListener("change",async e=>{
+  const t=e.target;
+  if(t.id==="stSel"){await saveMeta({status:+t.value});return;}
+  if(t.dataset.q!==undefined){const asked=Object.assign({},modMeta(sel).asked||{});asked[t.dataset.q]=t.checked;await saveMeta({asked});return;}
+  if(t.id==="fileIn"&&t.files[0]){const f=t.files[0];await addItem({kind:"file",blob:f,contentType:f.type,fileName:f.name,text:takeCaption()});t.value="";return;}
+  if(t.id==="voiceIn"&&t.files[0]){const f=t.files[0];await addItem({kind:"voice",blob:f,contentType:f.type,fileName:f.name,text:takeCaption()});t.value="";return;}
+  if(t.id==="importIn"&&t.files[0]){await importBackup(t.files[0]);t.value="";return;}
+});
+$("#whoIn").value=who;
+$("#whoIn").addEventListener("input",e=>{who=e.target.value.trim();try{localStorage.setItem("ght-disc-who",who);}catch(_){}});
+window.addEventListener("beforeunload",e=>{if(rec){e.preventDefault();e.returnValue="";}});
+
+render();
+(async()=>{
+  try{idb=await openDb();await loadAll();render();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});}
+  catch(e){note("This browser is blocking storage (private window?). Notes can't be saved here.");}
+})();
+})();
+</script>
+</body>
+</html>
