@@ -129,18 +129,30 @@ img{max-width:100%}
   <div class="panel row between" style="margin-bottom:12px">
     <label class="row" style="gap:8px;font-weight:600;font-size:14px">Your name <input id="whoIn" placeholder="e.g. Donal" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:7px 10px;width:180px"></label>
     <div class="row">
+      <button class="btn sm" id="connBtn" type="button" aria-expanded="false" aria-controls="connPanel">Storage: this browser</button>
       <button class="btn sm" id="copySum" type="button">Copy summary</button>
       <button class="btn sm" id="exportBtn" type="button">Export backup</button>
       <label class="btn sm">Import backup<input type="file" id="importIn" accept="application/json,.json" hidden></label>
       <a class="btn sm" href="./" style="text-decoration:none">Open prototype</a>
     </div>
   </div>
+  <section class="panel" id="connPanel" hidden style="margin-bottom:12px">
+    <h3>Save to Google Sheet</h3>
+    <p class="hint" style="margin:4px 0 10px">Connect the board to GHT's Google Sheet so everyone sees the same notes, answers and build list. Files and voice notes go into a Google Drive folder. Paste the web app URL and access key from the Apps Script setup (see apps-script/Code.gs in the repo).</p>
+    <div class="row" style="align-items:end">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;flex:2 1 320px;min-width:0">Web app URL<input id="connUrl" placeholder="https://script.google.com/macros/s/…/exec" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;min-width:0" autocomplete="off"></label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;flex:1 1 180px;min-width:0">Access key<input id="connKey" type="password" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;min-width:0" autocomplete="off"></label>
+      <button class="btn primary" type="button" id="connGo">Connect</button>
+      <button class="btn" type="button" id="connOff">Use this browser only</button>
+    </div>
+    <div class="row" style="margin-top:10px" id="migrateRow" hidden><span class="hint">This browser has notes saved locally.</span><button class="btn sm" type="button" id="migrateBtn">Copy them to the Google Sheet</button></div>
+  </section>
   <div id="status" class="notice" hidden></div>
   <div class="layout" style="margin-top:12px">
     <aside id="mods" aria-label="Modules"></aside>
     <main id="sheet"></main>
   </div>
-  <p class="hint" style="margin-top:24px">Notes, files and voice notes are saved in this browser on this device only. Use Export backup to keep a copy or move it to another device. Nothing is uploaded to GitHub.</p>
+  <p class="hint" style="margin-top:24px" id="storeHint"></p>
 </div>
 <div class="toast" id="toast" role="status"></div>
 
@@ -173,15 +185,39 @@ function note(t){const s=$("#status");s.hidden=!t;s.textContent=t||"";}
 let idb=null;
 function openDb(){return new Promise((res,rej)=>{const r=indexedDB.open("ght-discovery",1);r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore("meta");d.createObjectStore("items",{keyPath:"id"});};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
 function tx(store,mode,fn){return new Promise((res,rej)=>{const t=idb.transaction(store,mode);const s=t.objectStore(store);let out;const r=fn(s);if(r)r.onsuccess=()=>{out=r.result;};t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error);});}
-const putItem=it=>tx("items","readwrite",s=>s.put(it));
-const delItem=id=>tx("items","readwrite",s=>s.delete(id));
-const putMeta=(id,v)=>tx("meta","readwrite",s=>s.put(v,id));
+// ---------- Google Sheet storage (Apps Script web app) ----------
+let remote=null; try{const r=JSON.parse(localStorage.getItem("ght-disc-remote")||"null");if(r&&r.url&&r.key)remote=r;}catch(e){}
+async function api(body){
+  let r;
+  try{r=await fetch(remote.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({key:remote.key},body))});}
+  catch(e){throw new Error("offline");}
+  let j; try{j=await r.json();}catch(e){throw new Error("bad_response");}
+  if(!j.ok) throw new Error(j.error||"failed");
+  return j;
+}
+const clean=it=>{const c=Object.assign({},it);delete c.blob;delete c._confirm;return c;};
+async function putItem(it){
+  if(!remote) return tx("items","readwrite",s=>s.put(it));
+  let file=null;
+  if(it.blob&&!it.fileId){if(it.blob.size>20*1024*1024)throw new Error("file_too_large");file={name:it.fileName||"file",type:it.blob.type||it.contentType||"application/octet-stream",data:await toB64(it.blob)};}
+  const j=await api({action:"putItem",item:clean(it),file});
+  if(j.item&&j.item.fileId) it.fileId=j.item.fileId;
+}
+async function delItem(id){ if(!remote) return tx("items","readwrite",s=>s.delete(id)); await api({action:"deleteItem",id}); }
+async function putMeta(id,v,patch){ if(!remote) return tx("meta","readwrite",s=>s.put(v,id)); await api({action:"patchMeta",mod:id,patch:patch||v}); }
+async function fetchBlob(it){
+  const j=await api({action:"file",fileId:it.fileId});
+  it.blob=fromB64(j.data,j.type||it.contentType); return it.blob;
+}
 async function loadAll(){
-  const all=await tx("items","readonly",s=>s.getAll());
-  MODS.forEach(m=>items[m.id]=[]);
-  (all||[]).forEach(it=>{if(items[it.mod])items[it.mod].push(it);});
-  MODS.forEach(m=>items[m.id].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)));
-  for(const m of MODS){const v=await tx("meta","readonly",s=>s.get(m.id));if(v)meta[m.id]=v;}
+  let all=[], m={};
+  if(remote){const j=await api({action:"all"});all=j.items||[];m=j.meta||{};}
+  else{all=await tx("items","readonly",s=>s.getAll())||[];for(const x of MODS){const v=await tx("meta","readonly",s=>s.get(x.id));if(v)m[x.id]=v;}}
+  const prev={};MODS.forEach(x=>items[x.id].forEach(it=>{prev[it.id]=it;}));
+  MODS.forEach(x=>items[x.id]=[]);
+  all.forEach(it=>{const p=prev[it.id];if(p&&p.blob&&!it.blob)it.blob=p.blob;if(p&&p._confirm)it._confirm=true;if(items[it.mod])items[it.mod].push(it);});
+  MODS.forEach(x=>items[x.id].sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))));
+  MODS.forEach(x=>{delete meta[x.id];});Object.assign(meta,m);
 }
 
 let sel="quotes"; try{const h=location.hash.slice(1);if(MODS.some(m=>m.id===h))sel=h;}catch(e){}
@@ -211,13 +247,15 @@ function renderSheet(){
   document.querySelectorAll("textarea.ans").forEach(autoGrow);
 }
 function autoGrow(el){el.style.height="auto";el.style.height=Math.min(el.scrollHeight+2,320)+"px";}
-let ansTimer=null;
+let ansTimer=null; const pendingAns={};
+function saveErr(){toast(remote?"Couldn't reach the Google Sheet. Check your connection and try again.":"Couldn't save. Is browser storage blocked?");}
 function saveAnswer(i,val){
   const mm=modMeta(sel);const answers=Object.assign({},mm.answers||{});answers[i]=val;
   const asked=Object.assign({},mm.asked||{}); if(val.trim()&&!asked[i]){asked[i]=true;const cb=document.getElementById(`q-${sel}-${i}`);if(cb){cb.checked=true;$("#ql-"+i).classList.add("done");}}
   meta[sel]=Object.assign({},mm,{answers,asked});
+  const pp=(pendingAns[sel]=pendingAns[sel]||{answers:{},asked:{}}); pp.answers[i]=val; if(asked[i])pp.asked[i]=true;
   clearTimeout(ansTimer); const mod=sel;
-  ansTimer=setTimeout(async()=>{try{await putMeta(mod,meta[mod]);renderIndex();}catch(e){toast("Couldn't save. Is browser storage blocked?");}},400);
+  ansTimer=setTimeout(async()=>{ansTimer=null;const patch=pendingAns[mod];delete pendingAns[mod];try{await putMeta(mod,meta[mod],patch);renderIndex();}catch(e){saveErr();}},remote?900:400);
 }
 function _renderSheet(){
   const m=MODS.find(x=>x.id===sel), mm=modMeta(sel), all=items[sel], list=all.filter(x=>x.kind!=="build"&&x.q==null), qfiles=all.filter(x=>x.q!=null).slice().reverse(), builds=all.filter(x=>x.kind==="build").slice().reverse(), canRec=!!(navigator.mediaDevices&&window.MediaRecorder);
@@ -254,28 +292,69 @@ function _renderSheet(){
   </section>`;
 }
 function chipHtml(it){
+  if(!it.blob&&it.fileId) return `<span class="chip-f"><button type="button" data-fetch="${esc(it.id)}" style="color:var(--accent);font-weight:600;font-size:13px" title="Load ${esc(it.fileName)}">${esc(it.fileName)}</button><button type="button" data-del="${esc(it.id)}" aria-label="Remove ${esc(it.fileName)}">${it._confirm?"Remove?":"✕"}</button></span>`;
   const u=blobUrl(it), img=/^image\//.test(it.contentType||"");
   return `<span class="chip-f">${img?`<img src="${u}" alt="">`:""}<a href="${u}" download="${esc(it.fileName)}" title="${esc(it.fileName)}">${esc(it.fileName)}</a><button type="button" data-del="${esc(it.id)}" aria-label="Remove ${esc(it.fileName)}">${it._confirm?"Remove?":"✕"}</button></span>`;
 }
 function itemHtml(it){
   let body="";
   if(it.text) body+=`<p>${esc(it.text)}</p>`;
-  if(it.kind==="file"){
+  if(!it.blob&&it.fileId&&(it.kind==="file"||it.kind==="voice")){
+    body+=`<div class="row" style="margin-top:8px"><button class="btn sm" type="button" data-fetch="${esc(it.id)}">${it.kind==="voice"?"Play voice note":/^image\//.test(it.contentType||"")?"Show photo":"Open "+esc(it.fileName)}</button><span class="hint">${esc(it.fileName)}</span></div>`;
+  }else if(it.kind==="file"){
     const u=blobUrl(it);
     if(/^image\//.test(it.contentType||"")) body+=`<img src="${u}" alt="${esc(it.fileName)}" loading="lazy">`;
     body+=`<a class="file" href="${u}" download="${esc(it.fileName)}">${esc(it.fileName)}</a>`;
   }
-  if(it.kind==="voice") body+=`<audio controls preload="metadata" src="${blobUrl(it)}"></audio><div class="hint">${esc(it.fileName||"Voice note")}${it.seconds?` · ${Math.floor(it.seconds/60)}:${String(it.seconds%60).padStart(2,"0")}`:""} · <a href="${blobUrl(it)}" download="${esc(it.fileName||"voice-note")}">Download</a></div>`;
+  if(it.kind==="voice"&&it.blob) body+=`<audio controls preload="metadata" src="${blobUrl(it)}"></audio><div class="hint">${esc(it.fileName||"Voice note")}${it.seconds?` · ${Math.floor(it.seconds/60)}:${String(it.seconds%60).padStart(2,"0")}`:""} · <a href="${blobUrl(it)}" download="${esc(it.fileName||"voice-note")}">Download</a></div>`;
   return `<article class="item"><div class="ico">${ICON[it.kind]||ICON.note}</div><div style="min-width:0">
     <div class="row between"><span class="who"><b>${esc(it.author||"Someone")}</b> · ${when(it.createdAt)}</span><button class="btn sm" type="button" data-del="${esc(it.id)}">${it._confirm?"Click again to delete":"Delete"}</button></div>
     ${body}</div></article>`;
 }
-function render(){renderIndex();renderSheet();}
+function renderConn(){
+  const b=$("#connBtn"); b.textContent=remote?"Storage: Google Sheet ✓":"Storage: this browser";
+  $("#storeHint").textContent=remote?"Saved to the shared Google Sheet; files and voice notes are in its Google Drive folder. Changes from others appear within 30 seconds.":"Notes, files and voice notes are saved in this browser on this device only. Connect the Google Sheet to share them, or use Export backup. Nothing is uploaded to GitHub.";
+  $("#connOff").hidden=!remote;
+}
+function render(){renderConn();renderIndex();renderSheet();}
+let refreshing=false;
+async function refresh(first){
+  if(refreshing)return;
+  if(!first){const a=document.activeElement;if(ansTimer||rec||(a&&/^(TEXTAREA|INPUT)$/.test(a.tagName)&&a.value))return;}
+  refreshing=true;
+  try{await loadAll();note("");render();}
+  catch(e){if(remote)note(e.message==="bad_key"?"The Google Sheet rejected the access key. Re-connect with the right key.":"Couldn't reach the Google Sheet. Showing what was loaded last; changes may not save.");else render();}
+  finally{refreshing=false;}
+}
+async function localItems(){if(!idb)return{all:[],meta:{}};const all=await tx("items","readonly",s=>s.getAll())||[];const m={};for(const x of MODS){const v=await tx("meta","readonly",s=>s.get(x.id));if(v)m[x.id]=v;}return{all,meta:m};}
+async function connect(){
+  const url=$("#connUrl").value.trim(),key=$("#connKey").value.trim();
+  if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)){toast("Paste the Apps Script web app URL (it starts with https://script.google.com/).");return;}
+  if(!key){toast("Enter the access key.");return;}
+  const prev=remote; remote={url,key};
+  $("#connGo").disabled=true; $("#connGo").textContent="Connecting…";
+  try{await api({action:"ping"});}
+  catch(e){remote=prev;$("#connGo").disabled=false;$("#connGo").textContent="Connect";toast(e.message==="bad_key"?"That access key isn't right.":"Couldn't reach that web app. Check the URL and that it's deployed for Anyone.");return;}
+  try{localStorage.setItem("ght-disc-remote",JSON.stringify(remote));}catch(e){}
+  $("#connGo").disabled=false;$("#connGo").textContent="Connect";
+  MODS.forEach(x=>items[x.id]=[]);
+  await refresh(true); toast("Connected to the Google Sheet");
+  const loc=await localItems(); $("#migrateRow").hidden=!(loc.all.length||Object.keys(loc.meta).length);
+}
+async function migrateLocal(){
+  const btn=$("#migrateBtn"); btn.disabled=true;
+  const loc=await localItems(); let n=0;
+  try{
+    for(const it of loc.all){btn.textContent=`Copying ${++n} of ${loc.all.length}…`;const c=Object.assign({},it);delete c._confirm;await putItem(c);}
+    for(const [k,v] of Object.entries(loc.meta)) await putMeta(k,v,{status:v.status,asked:v.asked||{},answers:v.answers||{}});
+    await refresh(true); $("#migrateRow").hidden=true; toast(`Copied ${loc.all.length} item${loc.all.length===1?"":"s"} to the Google Sheet`);
+  }catch(e){toast(e.message==="file_too_large"?"One file is over 20 MB and couldn't be copied.":"Copying stopped part-way. Press the button again to continue.");btn.disabled=false;btn.textContent="Copy them to the Google Sheet";}
+}
 
-async function saveMeta(patch){meta[sel]=Object.assign({},modMeta(sel),patch);render();try{await putMeta(sel,meta[sel]);}catch(e){toast("Couldn't save. Is browser storage blocked?");}}
+async function saveMeta(patch,rpatch){meta[sel]=Object.assign({},modMeta(sel),patch);render();try{await putMeta(sel,meta[sel],rpatch||patch);}catch(e){saveErr();}}
 async function addItem(data){
   const it=Object.assign({id:uid(),mod:sel,author:who||"",createdAt:new Date().toISOString(),text:""},data);
-  try{await putItem(it);}catch(e){toast(e&&e.name==="QuotaExceededError"?"Browser storage is full. Export a backup and delete large files.":"Couldn't save. Is browser storage blocked?");return false;}
+  try{await putItem(it);}catch(e){if(e&&e.message==="file_too_large")toast("That file is over 20 MB. Compress it or split it.");else if(e&&e.name==="QuotaExceededError")toast("Browser storage is full. Export a backup and delete large files.");else saveErr();return false;}
   items[sel].unshift(it); render();
   toast(it.kind==="voice"?"Voice note saved":it.kind==="file"?"Document attached":"Note added");
   return true;
@@ -355,6 +434,11 @@ document.addEventListener("click",async e=>{
     return;
   }
   if(b.id==="copySum"){copySummary();return;}
+  if(b.id==="connBtn"){const p=$("#connPanel");p.hidden=!p.hidden;b.setAttribute("aria-expanded",String(!p.hidden));if(!p.hidden){$("#connUrl").value=remote?remote.url:"";$("#connKey").value=remote?remote.key:"";$("#connUrl").focus();}return;}
+  if(b.id==="connGo"){connect();return;}
+  if(b.id==="connOff"){remote=null;try{localStorage.removeItem("ght-disc-remote");}catch(_){}MODS.forEach(x=>items[x.id]=[]);await refresh(true);toast("Using this browser only");return;}
+  if(b.id==="migrateBtn"){migrateLocal();return;}
+  if(b.dataset.fetch){const it=items[sel].find(x=>x.id===b.dataset.fetch);if(!it)return;b.disabled=true;b.textContent="Loading…";try{await fetchBlob(it);renderSheet();}catch(err){b.disabled=false;b.textContent="Try again";toast("Couldn't load that file from Google Drive.");}return;}
   if(b.id==="exportBtn"){exportBackup();return;}
 });
 document.addEventListener("submit",async e=>{
@@ -363,7 +447,7 @@ document.addEventListener("submit",async e=>{
   const inp=$("#bIn"),t=inp.value.trim();if(!t){toast("Type the build item first");return;}
   lastTag=$("#bTag").value;
   const it={id:uid(),mod:sel,kind:"build",tag:lastTag,text:t,done:false,author:who||"",createdAt:new Date().toISOString()};
-  try{await putItem(it);}catch(err){toast("Couldn't save. Is browser storage blocked?");return;}
+  try{await putItem(it);}catch(err){saveErr();return;}
   items[sel].unshift(it); inp.value=""; render(); const ni=$("#bIn"); if(ni)ni.focus();
 });
 document.addEventListener("input",e=>{
@@ -372,7 +456,7 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("change",async e=>{
   const t=e.target;
-  if(t.dataset&&t.dataset.bdone){const it=items[sel].find(x=>x.id===t.dataset.bdone);if(!it)return;it.done=t.checked;try{const c=Object.assign({},it);delete c._confirm;await putItem(c);}catch(err){toast("Couldn't save.");}render();if(it.done)toast("Marked as built");}
+  if(t.dataset&&t.dataset.bdone){const it=items[sel].find(x=>x.id===t.dataset.bdone);if(!it)return;it.done=t.checked;try{const c=Object.assign({},it);delete c._confirm;await putItem(c);}catch(err){saveErr();}render();if(it.done)toast("Marked as built");}
 });
 document.addEventListener("change",async e=>{
   const t=e.target;
@@ -381,13 +465,13 @@ document.addEventListener("change",async e=>{
     const qi=+t.dataset.qfile, files=[...t.files]; t.value="";
     for(const f of files){
       const it={id:uid(),mod:sel,q:qi,kind:/^audio\//.test(f.type)?"voice":"file",blob:f,contentType:f.type,fileName:f.name,author:who||"",createdAt:new Date().toISOString(),text:""};
-      try{await putItem(it);items[sel].unshift(it);}catch(e){toast(e&&e.name==="QuotaExceededError"?"Browser storage is full. Export a backup and delete large files.":"Couldn't save that file.");return;}
+      try{await putItem(it);items[sel].unshift(it);}catch(e){toast(e&&e.message==="file_too_large"?"That file is over 20 MB. Compress it or split it.":e&&e.name==="QuotaExceededError"?"Browser storage is full. Export a backup and delete large files.":"Couldn't save that file.");return;}
     }
-    const mm=modMeta(sel); if(!(mm.asked||{})[qi]){const asked=Object.assign({},mm.asked||{});asked[qi]=true;await saveMeta({asked});} else render();
+    const mm=modMeta(sel); if(!(mm.asked||{})[qi]){const asked=Object.assign({},mm.asked||{});asked[qi]=true;await saveMeta({asked},{asked:{[qi]:true}});} else render();
     toast(files.length>1?`${files.length} files attached`:"File attached");
     return;
   }
-  if(t.dataset.q!==undefined){const asked=Object.assign({},modMeta(sel).asked||{});asked[t.dataset.q]=t.checked;await saveMeta({asked});return;}
+  if(t.dataset.q!==undefined){const asked=Object.assign({},modMeta(sel).asked||{});asked[t.dataset.q]=t.checked;await saveMeta({asked},{asked:{[t.dataset.q]:t.checked}});return;}
   if(t.id==="fileIn"&&t.files[0]){const f=t.files[0];await addItem({kind:"file",blob:f,contentType:f.type,fileName:f.name,text:takeCaption()});t.value="";return;}
   if(t.id==="voiceIn"&&t.files[0]){const f=t.files[0];await addItem({kind:"voice",blob:f,contentType:f.type,fileName:f.name,text:takeCaption()});t.value="";return;}
   if(t.id==="importIn"&&t.files[0]){await importBackup(t.files[0]);t.value="";return;}
@@ -398,8 +482,11 @@ window.addEventListener("beforeunload",e=>{if(rec){e.preventDefault();e.returnVa
 
 render();
 (async()=>{
-  try{idb=await openDb();await loadAll();render();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});}
-  catch(e){note("This browser is blocking storage (private window?). Notes can't be saved here.");}
+  try{idb=await openDb();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});}
+  catch(e){if(!remote)note("This browser is blocking storage (private window?). Notes can't be saved here. Connect the Google Sheet instead.");}
+  await refresh(true);
+  setInterval(()=>{if(remote&&!document.hidden)refresh(false);},30000);
+  document.addEventListener("visibilitychange",()=>{if(remote&&!document.hidden)refresh(false);});
 })();
 })();
 </script>
