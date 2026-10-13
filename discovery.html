@@ -86,6 +86,21 @@ textarea{width:100%;min-height:84px;resize:vertical}
 .mono{font-family:var(--mono);font-size:13px}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 
+.qs li{display:flex;flex-direction:column;gap:4px}
+.qs textarea.ans{min-height:40px;font-size:14.5px;padding:6px 10px;margin-left:28px;width:calc(100% - 28px);background:var(--surface)}
+.qs textarea.ans:placeholder-shown{border-style:dashed}
+.build{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.build li{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r)}
+.build li.done .bt{color:var(--muted);text-decoration:line-through}
+.build input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
+.bt{word-wrap:break-word}
+.tag-Requirement{background:var(--info-soft);color:var(--info)}
+.tag-Decision{background:var(--ok-soft);color:var(--ok)}
+.tag-Openquestion{background:var(--warn-soft);color:var(--warn)}
+.tag-Change{background:var(--bad-soft);color:var(--bad)}
+.addb{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.addb input{flex:1 1 260px;font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;min-width:0}
+@media (max-width:520px){.build li{grid-template-columns:auto minmax(0,1fr) auto}.build li .pill{grid-column:2;grid-row:2;justify-self:start}}
 [hidden]{display:none!important}
 body{margin:0}
 img{max-width:100%}
@@ -174,17 +189,30 @@ function renderIndex(){
   const agreed=MODS.filter(m=>modMeta(m.id).status===3).length;
   $("#progBar").style.width=(agreed/MODS.length*100)+"%";
   $("#progTxt").textContent=`${agreed} of ${MODS.length} agreed`;
-  $("#mods").innerHTML=MODS.map(m=>{const mm=modMeta(m.id),n=items[m.id].length,asked=Object.values(mm.asked||{}).filter(Boolean).length;
-    return `<button class="mod" type="button" data-mod="${m.id}" aria-current="${m.id===sel}"><b>${esc(m.name)}</b><span class="pill st-${mm.status}">${STATUS[mm.status]}</span><span class="meta">${asked}/${m.qs.length} asked · ${n} item${n===1?"":"s"}</span></button>`;}).join("");
+  $("#mods").innerHTML=MODS.map(m=>{const mm=modMeta(m.id),all=items[m.id],n=all.filter(x=>x.kind!=="build").length,bl=all.filter(x=>x.kind==="build"),open=bl.filter(x=>!x.done).length,asked=Object.values(mm.asked||{}).filter(Boolean).length;
+    return `<button class="mod" type="button" data-mod="${m.id}" aria-current="${m.id===sel}"><b>${esc(m.name)}</b><span class="pill st-${mm.status}">${STATUS[mm.status]}</span><span class="meta">${asked}/${m.qs.length} asked · ${n} note${n===1?"":"s"} · ${bl.length?`${open} to build`:"no build items"}</span></button>`;}).join("");
 }
 let draftFor=null;
+let lastTag="Requirement";
 function renderSheet(){
-  const ta0=$("#noteIn"), draft=ta0&&draftFor===sel?ta0.value:"", hadFocus=ta0&&document.activeElement===ta0;
+  const keep=["noteIn","bIn"].map(id=>{const el=$("#"+id);return {id,v:el&&draftFor===sel?el.value:"",f:el&&document.activeElement===el};});
+  const act=document.activeElement, actId=act&&act.id&&act.classList.contains("ans")?act.id:null;
   draftFor=sel; _renderSheet();
-  const ta=$("#noteIn"); if(ta&&draft)ta.value=draft; if(ta&&hadFocus)ta.focus();
+  keep.forEach(k=>{const el=$("#"+k.id);if(!el)return;if(k.v)el.value=k.v;if(k.f)el.focus();});
+  if(actId){const el=document.getElementById(actId);if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}}
+  document.querySelectorAll("textarea.ans").forEach(autoGrow);
+}
+function autoGrow(el){el.style.height="auto";el.style.height=Math.min(el.scrollHeight+2,320)+"px";}
+let ansTimer=null;
+function saveAnswer(i,val){
+  const mm=modMeta(sel);const answers=Object.assign({},mm.answers||{});answers[i]=val;
+  const asked=Object.assign({},mm.asked||{}); if(val.trim()&&!asked[i]){asked[i]=true;const cb=document.getElementById(`q-${sel}-${i}`);if(cb){cb.checked=true;$("#ql-"+i).classList.add("done");}}
+  meta[sel]=Object.assign({},mm,{answers,asked});
+  clearTimeout(ansTimer); const mod=sel;
+  ansTimer=setTimeout(async()=>{try{await putMeta(mod,meta[mod]);renderIndex();}catch(e){toast("Couldn't save. Is browser storage blocked?");}},400);
 }
 function _renderSheet(){
-  const m=MODS.find(x=>x.id===sel), mm=modMeta(sel), list=items[sel], canRec=!!(navigator.mediaDevices&&window.MediaRecorder);
+  const m=MODS.find(x=>x.id===sel), mm=modMeta(sel), all=items[sel], list=all.filter(x=>x.kind!=="build"), builds=all.filter(x=>x.kind==="build").slice().reverse(), canRec=!!(navigator.mediaDevices&&window.MediaRecorder);
   $("#sheet").innerHTML=`
   <section class="panel">
     <div class="row between"><div style="min-width:0;flex:1 1 300px"><h2>${esc(m.name)}</h2><p class="sub">${esc(m.sum)}</p></div>
@@ -192,7 +220,14 @@ function _renderSheet(){
   </section>
   <section class="panel">
     <h3>Questions to cover</h3>
-    <ul class="qs">${m.qs.map((q,i)=>{const on=!!(mm.asked||{})[i];return `<li><label class="${on?"done":""}"><input type="checkbox" id="q-${sel}-${i}" data-q="${i}" ${on?"checked":""}><span>${esc(q)}</span></label></li>`;}).join("")}</ul>
+    <ul class="qs">${m.qs.map((q,i)=>{const on=!!(mm.asked||{})[i],ans=(mm.answers||{})[i]||"";return `<li><label class="${on?"done":""}" id="ql-${i}"><input type="checkbox" id="q-${sel}-${i}" data-q="${i}" ${on?"checked":""}><span>${esc(q)}</span></label><textarea class="ans" id="a-${sel}-${i}" data-ans="${i}" rows="1" placeholder="Answer…" aria-label="Answer: ${esc(q)}">${esc(ans)}</textarea></li>`;}).join("")}</ul>
+    <p class="hint" style="margin:8px 0 0">Answers save as you type. Typing an answer ticks the question.</p>
+  </section>
+  <section class="panel">
+    <div class="row between"><h3>Build list</h3><span class="mono" style="color:var(--muted)">${builds.filter(b=>b.done).length}/${builds.length} built</span></div>
+    <p class="hint" style="margin:4px 0 0">Turn what you hear into build items as you go. Tick them off when they're built.</p>
+    <ul class="build">${builds.length?builds.map(b=>`<li class="${b.done?"done":""}"><input type="checkbox" id="b-${esc(b.id)}" data-bdone="${esc(b.id)}" ${b.done?"checked":""} aria-label="Built: ${esc(b.text)}"><span class="pill tag-${(b.tag||"Requirement").replace(/[^A-Za-z]/g,"")}">${esc(b.tag||"Requirement")}</span><span class="bt">${esc(b.text)}</span><button class="btn sm" type="button" data-del="${esc(b.id)}" aria-label="Delete build item">${b._confirm?"Sure?":"✕"}</button></li>`).join(""):`<li style="display:block" class="hint">No build items yet.</li>`}</ul>
+    <form class="addb" id="buildForm"><select id="bTag" aria-label="Type">${["Requirement","Decision","Open question","Change"].map(t=>`<option ${t===lastTag?"selected":""}>${t}</option>`).join("")}</select><input id="bIn" placeholder="e.g. Quote shows SEAI grant as a separate line" aria-label="Build item"><button class="btn primary" type="submit">Add</button></form>
   </section>
   <section class="panel">
     <h3>Add to ${esc(m.name)}</h3>
@@ -282,8 +317,13 @@ async function importBackup(f){
 function copySummary(){
   const lines=["# GHT discovery summary",""];
   MODS.forEach(m=>{const mm=modMeta(m.id);lines.push(`## ${m.name} (${STATUS[mm.status]})`);
-    m.qs.forEach((q,i)=>lines.push(`- [${(mm.asked||{})[i]?"x":" "}] ${q}`));
-    items[m.id].slice().reverse().forEach(it=>lines.push(`- ${it.kind==="note"?"Note":it.kind==="voice"?"Voice note":"Document"} (${it.author||"Someone"}, ${when(it.createdAt)}): ${it.text||""}${it.fileName?` [${it.fileName}]`:""}`));
+    lines.push("### Questions");
+    m.qs.forEach((q,i)=>{lines.push(`- [${(mm.asked||{})[i]?"x":" "}] ${q}`);const a=((mm.answers||{})[i]||"").trim();if(a)lines.push(`    - Answer: ${a.replace(/\n+/g," / ")}`);});
+    const bl=items[m.id].filter(x=>x.kind==="build").slice().reverse();
+    if(bl.length){lines.push("### Build list");bl.forEach(b=>lines.push(`- [${b.done?"x":" "}] ${b.tag||"Requirement"}: ${b.text}`));}
+    const nt=items[m.id].filter(x=>x.kind!=="build");
+    if(nt.length)lines.push("### Notes and files");
+    nt.slice().reverse().forEach(it=>lines.push(`- ${it.kind==="note"?"Note":it.kind==="voice"?"Voice note":"Document"} (${it.author||"Someone"}, ${when(it.createdAt)}): ${it.text||""}${it.fileName?` [${it.fileName}]`:""}`));
     lines.push("");});
   const txt=lines.join("\n");
   const fallback=()=>{const ta=document.createElement("textarea");ta.value=txt;ta.setAttribute("aria-label","Discovery summary");ta.style.cssText="width:100%;min-height:200px;margin-top:12px";$("#sheet").prepend(ta);ta.select();toast("Select all and copy the summary");};
@@ -304,6 +344,23 @@ document.addEventListener("click",async e=>{
   }
   if(b.id==="copySum"){copySummary();return;}
   if(b.id==="exportBtn"){exportBackup();return;}
+});
+document.addEventListener("submit",async e=>{
+  if(e.target.id!=="buildForm")return;
+  e.preventDefault();
+  const inp=$("#bIn"),t=inp.value.trim();if(!t){toast("Type the build item first");return;}
+  lastTag=$("#bTag").value;
+  const it={id:uid(),mod:sel,kind:"build",tag:lastTag,text:t,done:false,author:who||"",createdAt:new Date().toISOString()};
+  try{await putItem(it);}catch(err){toast("Couldn't save. Is browser storage blocked?");return;}
+  items[sel].unshift(it); inp.value=""; render(); const ni=$("#bIn"); if(ni)ni.focus();
+});
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.dataset&&t.dataset.ans!==undefined){autoGrow(t);saveAnswer(t.dataset.ans,t.value);}
+});
+document.addEventListener("change",async e=>{
+  const t=e.target;
+  if(t.dataset&&t.dataset.bdone){const it=items[sel].find(x=>x.id===t.dataset.bdone);if(!it)return;it.done=t.checked;try{const c=Object.assign({},it);delete c._confirm;await putItem(c);}catch(err){toast("Couldn't save.");}render();if(it.done)toast("Marked as built");}
 });
 document.addEventListener("change",async e=>{
   const t=e.target;
