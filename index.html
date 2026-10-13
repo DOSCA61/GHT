@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en-IE">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>GHT Job Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: fixed left rail of modules (top scroller on phones) + working canvas; dense, operational, site-office feel */
+:root{
+  --bg:#f3f4f2; --surface:#ffffff; --sunk:#e9ebe7; --line:#d6d9d3; --fg:#1d2420; --muted:#5d6760;
+  --accent:#3b6e5a; --accent-ink:#ffffff; --accent-soft:#dce9e2;
+  --warn:#a86a12; --warn-soft:#f6e7cc; --bad:#a83a2c; --bad-soft:#f5dcd7; --ok:#2f7a4c; --ok-soft:#d8eedf; --info:#3a5f8f; --info-soft:#dce5f1;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141917; --surface:#1c2320; --sunk:#232b27; --line:#33403a; --fg:#e6ebe7; --muted:#9aa69f;
+  --accent:#7fbf9f; --accent-ink:#0f1512; --accent-soft:#24382e;
+  --warn:#e3a849; --warn-soft:#3a2d14; --bad:#ec8576; --bad-soft:#3d1f1a; --ok:#7fcf9a; --ok-soft:#1d3426; --info:#8fb3e3; --info-soft:#1e2b3d;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --surface:#1c2320; --sunk:#232b27; --line:#33403a; --fg:#e6ebe7; --muted:#9aa69f;
+  --accent:#7fbf9f; --accent-ink:#0f1512; --accent-soft:#24382e;
+  --warn:#e3a849; --warn-soft:#3a2d14; --bad:#ec8576; --bad-soft:#3d1f1a; --ok:#7fcf9a; --ok-soft:#1d3426; --info:#8fb3e3; --info-soft:#1e2b3d;
+  color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.app{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100%}
+nav.rail{background:var(--surface);border-right:1px solid var(--line);padding:20px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:env(safe-area-inset-top,0px);height:100vh;overflow:auto}
+.brand{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:.02em;padding:0 10px 2px}
+.brand small{display:block;font-family:var(--body);font-weight:500;font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.proto{margin:10px 10px 14px;font-size:12px;color:var(--warn);background:var(--warn-soft);padding:6px 8px;border-radius:var(--r)}
+nav.rail button{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:9px 10px;border-radius:var(--r);font-weight:500;color:var(--fg)}
+nav.rail button:hover{background:var(--sunk)}
+nav.rail button[aria-current="page"]{background:var(--accent);color:var(--accent-ink)}
+nav.rail button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+nav.rail .n{font-family:var(--mono);font-size:12px;opacity:.8}
+main{padding-block:24px 48px;padding-inline:28px;min-width:0}
+h1{font-family:var(--display);font-weight:700;font-size:34px;line-height:1.05;margin:0;text-wrap:balance;letter-spacing:.01em}
+h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0;letter-spacing:.02em}
+.head{display:flex;flex-wrap:wrap;gap:12px;align-items:end;justify-content:space-between;margin-bottom:18px}
+.sub{color:var(--muted);margin:4px 0 0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.kpi .l{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.kpi .v{font-family:var(--display);font-size:36px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi.bad .v{color:var(--bad)}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--sunk)}
+.num{text-align:right;font-family:var(--mono);font-size:14px}
+.mono{font-family:var(--mono);font-size:13.5px}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.s-Enquiry{background:var(--sunk);color:var(--muted)}
+.s-Quoted{background:var(--info-soft);color:var(--info)}
+.s-Scheduled{background:var(--accent-soft);color:var(--accent)}
+.s-In.progress,.s-Inprogress{background:var(--ok-soft);color:var(--ok)}
+.s-Delayed{background:var(--bad-soft);color:var(--bad)}
+.s-Completed{background:var(--sunk);color:var(--fg)}
+.m-Toorder{background:var(--warn-soft);color:var(--warn)}
+.m-Ordered{background:var(--info-soft);color:var(--info)}
+.m-Delivered{background:var(--ok-soft);color:var(--ok)}
+.d-Missing{background:var(--bad-soft);color:var(--bad)}
+.d-Received{background:var(--ok-soft);color:var(--ok)}
+.d-NA{background:var(--sunk);color:var(--muted)}
+button.btn,a.btn{font:inherit;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:8px 14px;border-radius:var(--r);text-decoration:none;display:inline-flex;gap:6px;align-items:center}
+button.btn:hover,a.btn:hover{background:var(--sunk)}
+button.btn.primary,a.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.btn.sm{padding:4px 10px;font-size:13px}
+button.btn:focus-visible,a.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);font-weight:500;min-width:0}
+input,select,textarea{font:inherit;font-size:14.5px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:7px 9px;min-width:0;width:100%}
+input[type=number]{font-family:var(--mono);font-size:14px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.list{display:flex;flex-direction:column;gap:8px;margin:12px 0 0;padding:0;list-style:none}
+.list li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 10px;background:var(--sunk);border-radius:var(--r);flex-wrap:wrap}
+.flag{border-left:3px solid var(--bad)}
+.flag.w{border-left-color:var(--warn)}
+.muted{color:var(--muted)}
+.empty{color:var(--muted);padding:18px;text-align:center;background:var(--sunk);border-radius:var(--r)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{all:unset;cursor:pointer;padding:5px 11px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip:focus-visible{outline:2px solid var(--accent)}
+/* quote sheet */
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:28px;max-width:760px}
+.sheet .top{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:2px solid var(--fg);padding-bottom:14px;margin-bottom:16px}
+.sheet .co{font-family:var(--display);font-size:30px;font-weight:700;line-height:1}
+.sheet .tot td{font-weight:700;border-bottom:none;font-size:16px}
+/* calendar */
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.cal .dow{background:var(--sunk);font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:6px;font-weight:600}
+.cal .day{background:var(--surface);min-height:96px;padding:5px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.cal .day.out{background:var(--sunk)}
+.cal .day.today .dn{background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:0 6px}
+.cal .dn{font-family:var(--mono);font-size:12px;align-self:flex-start}
+.cal .ev{font-size:11.5px;padding:1px 5px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-weight:600}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;margin-top:10px}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:15;font:inherit;font-weight:600;background:var(--accent);color:var(--accent-ink);border:none;border-radius:999px;padding:12px 18px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.fab:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.chat{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:16;width:min(400px,calc(100vw - 32px));height:min(560px,calc(100% - 32px));background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.22);display:flex;flex-direction:column;overflow:hidden}
+.chat header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+.chat header b{font-family:var(--display);font-size:20px;font-weight:600}
+.chat .log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.msg{max-width:88%;padding:9px 12px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word;font-size:14.5px;line-height:1.45}
+.msg.u{align-self:flex-end;background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:3px}
+.msg.a{align-self:flex-start;background:var(--sunk);border-bottom-left-radius:3px}
+.msg.a.wait{color:var(--muted);font-style:italic}
+.msg.err{align-self:center;background:var(--bad-soft);color:var(--bad);font-size:13px}
+.chat .sugg{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px}
+.chat form{display:flex;gap:8px;padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
+.chat form input{flex:1}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:16px;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:var(--r);font-weight:600;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none}
+.toast.on{opacity:1;transform:none}
+.dlg{position:fixed;inset:0;background:rgba(10,14,12,.55);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;z-index:20}
+.dlg .panel{width:100%;max-width:720px}
+.bar{height:8px;background:var(--sunk);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  nav.rail{position:sticky;top:env(safe-area-inset-top,0px);height:auto;flex-direction:row;overflow-x:auto;padding:10px 12px;border-right:none;border-bottom:1px solid var(--line);z-index:5}
+  .brand{font-size:20px;padding-right:10px;white-space:nowrap}
+  .brand small,.proto{display:none}
+  nav.rail button{white-space:nowrap}
+  nav.rail .n{display:none}
+  main{padding-inline:16px}
+  .sheet{padding:18px}
+  .cal .day{min-height:64px}
+  .cal .ev{font-size:10px}
+}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+
+[hidden]{display:none!important}
+body{margin:0}
+img{max-width:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media print{
+  body.pq .rail,body.pq .fab,body.pq .chat,body.pq .toast,body.pq #modal,body.pq main>:not(.sheet){display:none!important}
+  body.pq .app{display:block}
+  body.pq main{padding:0}
+  body.pq .sheet{border:none;max-width:none;padding:0}
+  body.pq{background:#fff;color:#000}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <nav class="rail" id="rail" aria-label="Modules">
+    <div class="brand">GHT<small>Job Manager</small></div>
+    <div class="proto">Prototype with sample data <button type="button" id="resetDemo" style="all:unset;cursor:pointer;text-decoration:underline;margin-left:4px">Reset</button></div>
+  </nav>
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<div id="modal"></div>
+<button class="fab" id="chatOpen" type="button" aria-controls="chat" aria-expanded="false">Ask GHT Assistant</button>
+<section class="chat" id="chat" hidden aria-label="GHT Assistant">
+  <header><b>GHT Assistant</b><button class="btn sm" type="button" id="chatClose">Close</button></header>
+  <div class="log" id="chatLog" aria-live="polite">
+    <div class="msg a">Ask me about jobs, quotes, materials, documents or who's working where. I read the same data you see in the system.</div>
+  </div>
+  <div class="sugg" id="chatSugg">
+    <button class="chip" type="button" data-q="Which jobs need attention this week and why?">What needs attention?</button>
+    <button class="chip" type="button" data-q="What documents are missing for SEAI claims, by job?">Missing SEAI docs</button>
+    <button class="chip" type="button" data-q="What's the total value of quoted and scheduled work, ex VAT and inc VAT?">Pipeline value</button>
+    <button class="chip" type="button" data-q="What materials still need to be ordered, and for which jobs?">Materials to order</button>
+  </div>
+  <form id="chatForm"><input id="chatIn" placeholder="e.g. When does Team A finish in Gorey?" autocomplete="off" aria-label="Your question"><button class="btn primary" id="chatSend" type="submit">Send</button></form>
+</section>
+
+<script>
+(function(){
+// ===== Settings: fill these in when deploying =====
+const CONFIG={
+  // Google Geocoding API key (restrict it to your GitHub Pages domain in Google Cloud). Empty = demo lookups only.
+  googleMapsKey:"",
+  // Chat endpoint that accepts an Anthropic Messages API request body and returns its response
+  // (e.g. your Cloudflare Worker proxy). Empty = chat button hidden outside Claude.
+  chatEndpoint:"",
+  chatModel:"claude-haiku-5-5",
+  // Pin "today" for the demo so the sample data looks current. Set to null to use the real date.
+  demoToday:"2026-10-13"
+};
+const TODAY = CONFIG.demoToday?new Date(CONFIG.demoToday+"T00:00"):new Date(new Date().toDateString());
+const MODULES=[["dashboard","Dashboard"],["projects","Projects"],["quotes","Quotes"],["measurements","Measurements"],["teams","Teams"],["materials","Materials"],["documents","SEAI / NSAI Docs"],["calendar","Calendar"]];
+const STATUSES=["Enquiry","Quoted","Scheduled","In progress","Delayed","Completed"];
+const DOC_TYPES=["NSAI Agrément certificate","Declaration of Performance (DoP)","Pre-works BER","Post-works BER","SEAI Declaration of Works","Contractor warranty","Insulation guarantee","Before / after photos"];
+const MAT_STATUS=["To order","Ordered","Delivered"];
+// Simulated Google geocoding results for the demo. The live build calls Google's Geocoding API instead.
+const GEO={
+  "Y21K2P4":{a:"12 Ard na Gréine, Enniscorthy, Co. Wexford",lat:52.5031,lng:-6.5658,q:"exact"},
+  "Y21R6T8":{a:"Ballyroe, Blackwater, Co. Wexford",lat:52.4473,lng:-6.3489,q:"approximate"},
+  "Y25F9H3":{a:"4 Church View, Gorey, Co. Wexford",lat:52.6752,lng:-6.2925,q:"exact"},
+  "Y35D7W2":{a:"7 Clonard Village, Wexford",lat:52.3302,lng:-6.4825,q:"exact"},
+  "Y21X4C6":{a:"Kilmuckridge Road, Oulart, Co. Wexford",lat:52.5024,lng:-6.3871,q:"approximate"},
+  "Y14H8N5":{a:"21 Parklands, Arklow, Co. Wicklow",lat:52.7934,lng:-6.1641,q:"exact"},
+  "Y21N3V9":{a:"Main Street, Ferns, Co. Wexford",lat:52.5903,lng:-6.4989,q:"approximate"},
+  "Y35R2K8":{a:"14 Belvedere Grove, Wexford Town, Co. Wexford",lat:52.3389,lng:-6.4712,q:"exact"},
+  "Y21P6F3":{a:"Killurin, Enniscorthy, Co. Wexford",lat:52.3998,lng:-6.5521,q:"approximate"},
+  "Y25T5W1":{a:"3 Ramstown Grove, Gorey, Co. Wexford",lat:52.6698,lng:-6.2861,q:"exact"},
+  "Y34K7C2":{a:"Bridgetown, Co. Wexford",lat:52.2311,lng:-6.5478,q:"approximate"}
+};
+const ECODE=/^([AC-FHKNPRTV-Y]\d{2}|D6W)\s?[0-9AC-FHKNPRTV-Y]{4}$/i;
+
+// ---------- sample data ----------
+function seed(){
+  return {
+    rates:{"100":95,"150":110,"200":125},
+    extraRates:{cill:48,bead:6.5,scaffold:1850,fixtures:280},
+    vat:13.5,
+    teams:[
+      {id:"t1",name:"Team A",color:"#3b6e5a",lead:"Seán Doyle",members:["Seán Doyle","Mark Kinsella","Piotr Nowak"],type:"Employees",role:"Boarding and mesh"},
+      {id:"t2",name:"Team B",color:"#3a5f8f",lead:"Ciarán Byrne",members:["Ciarán Byrne","Tomás Walsh"],type:"Employees",role:"Boarding and mesh"},
+      {id:"t3",name:"Render Crew",color:"#a86a12",lead:"Kowalski Plastering",members:["Andrzej Kowalski","Marek Lis"],type:"Subcontractor",role:"Base coat and silicone render"},
+      {id:"t4",name:"Scaffold",color:"#7a4f8f",lead:"Slaney Scaffolding",members:["Slaney Scaffolding"],type:"Subcontractor",role:"Erect and dismantle scaffold"}
+    ],
+    projects:[
+      {id:"p1",ref:"GHT-2026-041",customer:"Mary & John Furlong",phone:"087 123 4567",address:"12 Ard na Gréine, Enniscorthy, Co. Wexford",eircode:"Y21 K2P4",status:"In progress",start:"2026-10-05",end:"2026-10-23",team:"t1",notes:"Semi-detached, 1970s cavity block. SEAI One Stop Shop job."},
+      {id:"p2",ref:"GHT-2026-043",customer:"Declan Murphy",phone:"086 555 2190",address:"Ballyroe, Blackwater, Co. Wexford",eircode:"Y21 R6T8",status:"Delayed",start:"2026-09-28",end:"2026-10-16",team:"t2",notes:"Render delayed by weather. Customer informed 9 Oct."},
+      {id:"p3",ref:"GHT-2026-046",customer:"Aoife Nolan",phone:"085 341 7702",address:"4 Church View, Gorey, Co. Wexford",eircode:"Y25 F9H3",status:"Scheduled",start:"2026-10-26",end:"2026-11-13",team:"t1",notes:"Bungalow, gable to road."},
+      {id:"p4",ref:"GHT-2026-047",customer:"Wexford County Council (Unit 7)",phone:"053 919 6000",address:"7 Clonard Village, Wexford",eircode:"Y35 D7W2",status:"Scheduled",start:"2026-11-02",end:"2026-11-27",team:"t2",notes:"Social housing retrofit. Agrément cert must be on file before start."},
+      {id:"p5",ref:"GHT-2026-049",customer:"Patrick & Siobhán Redmond",phone:"087 904 1188",address:"Kilmuckridge Road, Oulart, Co. Wexford",eircode:"Y21 X4C6",status:"Quoted",start:"2026-11-16",end:"2026-12-04",team:"",notes:"Awaiting grant approval."},
+      {id:"p6",ref:"GHT-2026-038",customer:"Breda Keogh",phone:"083 220 6614",address:"21 Parklands, Arklow, Co. Wicklow",eircode:"Y14 H8N5",status:"Completed",start:"2026-09-07",end:"2026-09-25",team:"t1",notes:"Post-works BER outstanding."},
+      {id:"p7",ref:"GHT-2026-050",customer:"Liam Carroll",phone:"089 410 3377",address:"Main Street, Ferns, Co. Wexford",eircode:"Y21 N3V9",status:"Enquiry",start:"",end:"",team:"",notes:"Site survey booked."}
+    ],
+    measurements:{
+      p1:{thickness:"150",system:"EPS graphite, silicone render",elev:[{n:"Front",w:8.4,h:5.6,o:6.2},{n:"Rear",w:8.4,h:5.6,o:5.1},{n:"Gable",w:7.2,h:6.8,o:0.8}],cills:8,bead:64,scaffold:true,fixtures:true},
+      p2:{thickness:"100",system:"EPS white, acrylic render",elev:[{n:"Front",w:11.0,h:2.9,o:7.4},{n:"Rear",w:11.0,h:2.9,o:5.8},{n:"Gable",w:8.6,h:4.1,o:0},{n:"Gable 2",w:8.6,h:4.1,o:1.2}],cills:10,bead:82,scaffold:false,fixtures:true},
+      p3:{thickness:"150",system:"EPS graphite, silicone render",elev:[{n:"Front",w:12.2,h:3.0,o:8.1},{n:"Rear",w:12.2,h:3.0,o:6.4},{n:"Gable",w:9.0,h:4.6,o:1.0},{n:"Gable 2",w:9.0,h:4.6,o:0}],cills:9,bead:76,scaffold:false,fixtures:true},
+      p4:{thickness:"200",system:"Mineral wool, silicone render",elev:[{n:"Front",w:6.1,h:5.9,o:5.5},{n:"Rear",w:6.1,h:5.9,o:4.2},{n:"Gable",w:8.3,h:7.4,o:0.9}],cills:7,bead:58,scaffold:true,fixtures:false},
+      p5:{thickness:"150",system:"EPS graphite, silicone render",elev:[{n:"Front",w:9.6,h:5.7,o:7.0},{n:"Rear",w:9.6,h:5.7,o:6.1},{n:"Gable",w:7.8,h:6.9,o:0.6},{n:"Gable 2",w:7.8,h:6.9,o:0}],cills:11,bead:88,scaffold:true,fixtures:true},
+      p6:{thickness:"100",system:"EPS white, silicone render",elev:[{n:"Front",w:7.9,h:5.5,o:5.9},{n:"Rear",w:7.9,h:5.5,o:4.7},{n:"Gable",w:7.0,h:6.6,o:0.5}],cills:7,bead:56,scaffold:true,fixtures:true}
+    },
+    materials:{
+      p1:[{item:"150mm graphite EPS board",qty:146,unit:"m²",supplier:"Kingspan Insulation",status:"Delivered"},{item:"Adhesive / base coat (25kg)",qty:30,unit:"bags",supplier:"Chadwicks Wexford",status:"Delivered"},{item:"Fibreglass mesh",qty:146,unit:"m²",supplier:"Chadwicks Wexford",status:"Delivered"},{item:"Silicone render (25kg)",qty:17,unit:"tubs",supplier:"Baumit Ireland",status:"Ordered"}],
+      p2:[{item:"100mm white EPS board",qty:138,unit:"m²",supplier:"Kingspan Insulation",status:"Delivered"},{item:"Acrylic render (25kg)",qty:16,unit:"tubs",supplier:"Baumit Ireland",status:"Ordered"}],
+      p3:[{item:"150mm graphite EPS board",qty:142,unit:"m²",supplier:"Kingspan Insulation",status:"Ordered"},{item:"Aluminium window cills",qty:9,unit:"each",supplier:"Wexford Aluminium",status:"To order"}],
+      p4:[{item:"200mm mineral wool slab",qty:120,unit:"m²",supplier:"Rockwool via Chadwicks",status:"To order"}]
+    },
+    docs:{
+      p1:{"NSAI Agrément certificate":{s:"Received",f:"NSAI_Cert_EWI_Graphite.pdf"},"Declaration of Performance (DoP)":{s:"Received",f:"DoP_EPS150.pdf"},"Pre-works BER":{s:"Received",f:"BER_pre_Y21K2P4.pdf"},"SEAI Declaration of Works":{s:"Missing"},"Before / after photos":{s:"Received",f:"photos_before.zip"}},
+      p2:{"NSAI Agrément certificate":{s:"Received",f:"NSAI_Cert_EWI_White.pdf"},"Pre-works BER":{s:"Received",f:"BER_pre_Y21R6T8.pdf"}},
+      p4:{"Pre-works BER":{s:"Received",f:"BER_pre_Unit7.pdf"}},
+      p6:{"NSAI Agrément certificate":{s:"Received",f:"NSAI_Cert_EWI_White.pdf"},"Declaration of Performance (DoP)":{s:"Received",f:"DoP_EPS100.pdf"},"Pre-works BER":{s:"Received",f:"BER_pre_Y14H8N5.pdf"},"SEAI Declaration of Works":{s:"Received",f:"DoW_Keogh.pdf"},"Contractor warranty":{s:"Received",f:"Warranty_Keogh.pdf"},"Insulation guarantee":{s:"Received",f:"Guarantee_Keogh.pdf"},"Before / after photos":{s:"Received",f:"photos_keogh.zip"}}
+    }
+  };
+}
+
+const KEY="ght-proto-v1";
+let D;
+try{ const raw=localStorage.getItem(KEY); D=raw?JSON.parse(raw):seed(); }catch(e){ D=seed(); }
+function save(){ try{localStorage.setItem(KEY,JSON.stringify(D));}catch(e){} }
+let view="dashboard"; try{ const h=location.hash.slice(1); if(MODULES.some(m=>m[0]===h)) view=h; }catch(e){}
+let ui={projFilter:"All",selQuote:"p1",selMeas:"p1",selMat:"p1",selDoc:"p1",calMonth:new Date(TODAY.getFullYear(),TODAY.getMonth(),1)};
+
+// ---------- helpers ----------
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const eur=n=>"€"+Number(n||0).toLocaleString("en-IE",{minimumFractionDigits:2,maximumFractionDigits:2});
+const eur0=n=>"€"+Math.round(n||0).toLocaleString("en-IE");
+const fmtD=s=>{if(!s)return"—";const d=new Date(s+"T00:00");return d.toLocaleDateString("en-IE",{day:"numeric",month:"short"});};
+const pill=(st,pre="s")=>`<span class="pill ${pre}-${st.replace(/[^A-Za-z]/g,"")}">${esc(st)}</span>`;
+const proj=id=>D.projects.find(p=>p.id===id);
+const team=id=>D.teams.find(t=>t.id===id);
+const days=(a,b)=>Math.round((new Date(b+"T00:00")-new Date(a+"T00:00"))/864e5);
+const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const TODAY_ISO=iso(TODAY);
+function toast(t){const el=$("#toast");el.textContent=t;el.classList.add("on");clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove("on"),1800);}
+const projOpts=sel=>D.projects.map(p=>`<option value="${p.id}" ${p.id===sel?"selected":""}>${esc(p.ref)} · ${esc(p.customer)}</option>`).join("");
+const loc=p=>p.lat?`${p.lat},${p.lng}`:(p.eircode||"")+" "+p.address;
+const mapsUrl=p=>"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(loc(p));
+const dirUrl=p=>"https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(loc(p));
+
+function net(e){return Math.max(0,(+e.w||0)*(+e.h||0)-(+e.o||0));}
+function area(pid){const m=D.measurements[pid];return m?m.elev.reduce((s,e)=>s+net(e),0):0;}
+function quote(pid){
+  const m=D.measurements[pid]; if(!m) return null;
+  const a=area(pid), rate=D.rates[m.thickness]||0, x=D.extraRates, lines=[];
+  lines.push({d:`External wall insulation, ${m.thickness}mm ${m.system}`,q:a,u:"m²",r:rate});
+  if(+m.cills) lines.push({d:"Supply and fit aluminium window cills",q:+m.cills,u:"each",r:x.cill});
+  if(+m.bead) lines.push({d:"PVC corner and stop beads",q:+m.bead,u:"lm",r:x.bead});
+  if(m.scaffold) lines.push({d:"Scaffolding, erect and dismantle",q:1,u:"job",r:x.scaffold});
+  if(m.fixtures) lines.push({d:"Remove and refit external fixtures (lights, pipes, alarm)",q:1,u:"job",r:x.fixtures});
+  lines.forEach(l=>l.t=l.q*l.r);
+  const sub=lines.reduce((s,l)=>s+l.t,0), vat=sub*D.vat/100;
+  return {area:a,lines,sub,vat,total:sub+vat};
+}
+function docCount(pid){const d=D.docs[pid]||{};const got=DOC_TYPES.filter(t=>d[t]&&(d[t].s==="Received"||d[t].s==="N/A")).length;return {got,total:DOC_TYPES.length};}
+
+// ---------- nav ----------
+function renderRail(){
+  const counts={projects:D.projects.length,teams:D.teams.length};
+  const rail=$("#rail");
+  rail.querySelectorAll("button").forEach(b=>b.remove());
+  MODULES.forEach(([k,l])=>{
+    const b=document.createElement("button");b.type="button";b.dataset.go=k;
+    b.innerHTML=`<span>${l}</span>${counts[k]?`<span class="n">${counts[k]}</span>`:""}`;
+    if(k===view) b.setAttribute("aria-current","page");
+    rail.appendChild(b);
+  });
+}
+function go(v){view=v;try{history.replaceState(null,"","#"+v);}catch(e){}render();window.scrollTo(0,0);}
+
+// ---------- views ----------
+const V={};
+V.dashboard=()=>{
+  const act=D.projects.filter(p=>p.status==="In progress");
+  const delayed=D.projects.filter(p=>p.status==="Delayed"||(p.end&&p.end<TODAY_ISO&&!["Completed","Delayed","Enquiry","Quoted"].includes(p.status)));
+  const upcoming=D.projects.filter(p=>p.status==="Scheduled"&&p.start>=TODAY_ISO).sort((a,b)=>a.start.localeCompare(b.start));
+  const pipeline=D.projects.filter(p=>["Quoted","Scheduled"].includes(p.status)).reduce((s,p)=>s+(quote(p.id)?.total||0),0);
+  const flags=[];
+  delayed.forEach(p=>flags.push({c:"",t:`${p.ref} ${p.customer} is delayed`,s:p.notes,id:p.id}));
+  D.projects.filter(p=>["Scheduled","In progress"].includes(p.status)).forEach(p=>{
+    const dc=docCount(p.id); const d=D.docs[p.id]||{};
+    if(!(d["NSAI Agrément certificate"]&&d["NSAI Agrément certificate"].s==="Received")) flags.push({c:"w",t:`${p.ref} has no NSAI Agrément certificate on file`,s:`Starts ${fmtD(p.start)}`,id:p.id,go:"documents"});
+    const pend=(D.materials[p.id]||[]).filter(m=>m.status!=="Delivered");
+    if(pend.length&&p.start&&days(TODAY_ISO,p.start)<=14) flags.push({c:"w",t:`${p.ref}: ${pend.length} material line${pend.length>1?"s":""} not delivered`,s:`Starts ${fmtD(p.start)}`,id:p.id,go:"materials"});
+  });
+  D.projects.filter(p=>p.status==="Completed").forEach(p=>{const dc=docCount(p.id);if(dc.got<dc.total)flags.push({c:"w",t:`${p.ref} completed with ${dc.total-dc.got} document${dc.total-dc.got>1?"s":""} outstanding`,s:"Needed for SEAI grant claim",id:p.id,go:"documents"});});
+  const byStatus=STATUSES.map(s=>[s,D.projects.filter(p=>p.status===s).length]);
+  const max=Math.max(1,...byStatus.map(x=>x[1]));
+  return `<div class="head"><div><h1>Dashboard</h1><p class="sub">Week of ${TODAY.toLocaleDateString("en-IE",{day:"numeric",month:"long",year:"numeric"})}</p></div></div>
+  <div class="kpis">
+    <div class="kpi"><div class="l">On site now</div><div class="v">${act.length}</div></div>
+    <div class="kpi"><div class="l">Starting in 30 days</div><div class="v">${upcoming.filter(p=>days(TODAY_ISO,p.start)<=30).length}</div></div>
+    <div class="kpi ${delayed.length?"bad":""}"><div class="l">Delayed</div><div class="v">${delayed.length}</div></div>
+    <div class="kpi"><div class="l">Quoted + scheduled value</div><div class="v">${eur0(pipeline)}</div></div>
+  </div>
+  <div class="grid g2">
+    <section class="panel"><h2>Needs attention</h2>
+      ${flags.length?`<ul class="list">${flags.map(f=>`<li class="flag ${f.c}"><div><div><b>${esc(f.t)}</b></div><div class="muted" style="font-size:13px">${esc(f.s)}</div></div><button class="btn sm" data-open="${f.id}" ${f.go?`data-goto="${f.go}"`:""}>Open</button></li>`).join("")}</ul>`:`<p class="empty">Nothing needs attention.</p>`}
+    </section>
+    <section class="panel"><h2>Upcoming starts</h2>
+      ${upcoming.length?`<ul class="list">${upcoming.map(p=>`<li><div><b>${esc(p.customer)}</b><div class="muted" style="font-size:13px">${esc(p.ref)} · ${esc(team(p.team)?.name||"No team")} · ${area(p.id).toFixed(0)} m²</div></div><span class="mono">${fmtD(p.start)}</span></li>`).join("")}</ul>`:`<p class="empty">No scheduled starts.</p>`}
+      <h2 style="margin-top:20px">Projects by status</h2>
+      <div style="display:grid;gap:8px;margin-top:10px">${byStatus.map(([s,n])=>`<div style="display:grid;grid-template-columns:110px 1fr 28px;gap:10px;align-items:center;font-size:14px"><span>${s}</span><div class="bar"><i style="width:${n/max*100}%"></i></div><span class="mono" style="text-align:right">${n}</span></div>`).join("")}</div>
+    </section>
+  </div>`;
+};
+
+V.projects=()=>{
+  const list=D.projects.filter(p=>ui.projFilter==="All"||p.status===ui.projFilter);
+  return `<div class="head"><div><h1>Projects</h1><p class="sub">${D.projects.length} properties on file</p></div><button class="btn primary" data-new-proj>New project</button></div>
+  <div class="chips" style="margin-bottom:12px">${["All",...STATUSES].map(s=>`<button class="chip" data-pfilter="${s}" aria-pressed="${ui.projFilter===s}">${s}</button>`).join("")}</div>
+  <div class="panel tablewrap"><table><thead><tr><th>Ref</th><th>Customer</th><th>Address</th><th>Eircode</th><th>Status</th><th>Start</th><th>Finish</th><th>Team</th><th></th></tr></thead><tbody>
+  ${list.map(p=>`<tr class="click" data-open="${p.id}"><td class="mono">${esc(p.ref)}</td><td><b>${esc(p.customer)}</b></td><td>${esc(p.address)}</td><td class="mono">${esc(p.eircode)}</td><td>${pill(p.status)}</td><td class="mono">${fmtD(p.start)}</td><td class="mono">${fmtD(p.end)}</td><td>${esc(team(p.team)?.name||"—")}</td><td><a class="btn sm" href="${dirUrl(p)}" target="_blank" rel="noopener" data-stop>Directions</a></td></tr>`).join("")||`<tr><td colspan="9"><p class="empty">No projects with this status.</p></td></tr>`}
+  </tbody></table></div>`;
+};
+
+function projectDialog(p){
+  const isNew=!p; p=p||{id:"p"+Date.now(),ref:"GHT-2026-0"+(51+D.projects.length-7),customer:"",phone:"",address:"",eircode:"",status:"Enquiry",start:"",end:"",team:"",notes:""};
+  const q=quote(p.id), dc=docCount(p.id);
+  $("#modal").innerHTML=`<div class="dlg" data-close-bg><div class="panel" role="dialog" aria-modal="true" aria-labelledby="dlgT">
+    <div class="head" style="margin-bottom:12px"><div><h2 id="dlgT">${isNew?"New project":esc(p.ref)}</h2>${isNew?"":`<p class="sub">${pill(p.status)} · ${q?q.area.toFixed(1)+" m² · "+eur(q.total)+" inc VAT":"No measurements yet"} · Documents ${dc.got}/${dc.total}</p>`}</div><button class="btn sm" data-close>Close</button></div>
+    <form id="pform" class="form">
+      <label class="f">Customer<input id="f-customer" value="${esc(p.customer)}" required></label>
+      <label class="f">Phone<input id="f-phone" value="${esc(p.phone)}"></label>
+      <div style="grid-column:1/-1;display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+        <label class="f" style="flex:0 1 180px">Eircode<input id="f-eircode" value="${esc(p.eircode)}" placeholder="Y35 R2K8" autocomplete="off"></label>
+        <button class="btn" type="button" data-lookup>Find address</button>
+        <span id="geo-msg" class="muted" style="font-size:13px;min-width:0;flex:1 1 220px" role="status">${p.lat?`Located: <span class="mono">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</span>`:"Enter the Eircode and the address fills in."}</span>
+      </div>
+      <label class="f" style="grid-column:1/-1">Address<input id="f-address" value="${esc(p.address)}" required></label>
+      <label class="f">Status<select id="f-status">${STATUSES.map(s=>`<option ${s===p.status?"selected":""}>${s}</option>`).join("")}</select></label>
+      <label class="f">Start date<input id="f-start" type="date" value="${esc(p.start)}"></label>
+      <label class="f">Completion date<input id="f-end" type="date" value="${esc(p.end)}"></label>
+      <label class="f">Team<select id="f-team"><option value="">Not assigned</option>${D.teams.map(t=>`<option value="${t.id}" ${t.id===p.team?"selected":""}>${esc(t.name)}</option>`).join("")}</select></label>
+      <label class="f" style="grid-column:1/-1">Notes<textarea id="f-notes" rows="3">${esc(p.notes)}</textarea></label>
+      <div class="row" style="grid-column:1/-1;justify-content:space-between">
+        <div class="row">${isNew?"":`<a class="btn" href="${mapsUrl(p)}" target="_blank" rel="noopener">Show on Google Maps</a><a class="btn" href="${dirUrl(p)}" target="_blank" rel="noopener">Get directions</a>`}</div>
+        <button class="btn primary" type="submit">${isNew?"Create project":"Save changes"}</button>
+      </div>
+    </form>
+    ${isNew?"":`<div class="row" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"><span class="muted">Jump to:</span><button class="btn sm" data-jump="measurements" data-pid="${p.id}">Measurements</button><button class="btn sm" data-jump="quotes" data-pid="${p.id}">Quote</button><button class="btn sm" data-jump="materials" data-pid="${p.id}">Materials</button><button class="btn sm" data-jump="documents" data-pid="${p.id}">Documents</button></div>`}
+  </div></div>`;
+  $("#pform").addEventListener("submit",e=>{
+    e.preventDefault();
+    const g=k=>$("#f-"+k).value.trim();
+    Object.assign(p,{customer:g("customer"),phone:g("phone"),address:g("address"),eircode:fmtE(g("eircode")),status:g("status"),start:g("start"),end:g("end"),team:g("team"),notes:g("notes")});
+    if(pending&&pending.code===fmtE(g("eircode"))){p.lat=pending.lat;p.lng=pending.lng;}
+    if(isNew){D.projects.unshift(p);D.measurements[p.id]={thickness:"150",system:"EPS graphite, silicone render",elev:[{n:"Front",w:0,h:0,o:0},{n:"Rear",w:0,h:0,o:0},{n:"Gable",w:0,h:0,o:0}],cills:0,bead:0,scaffold:false,fixtures:false};}
+    save();closeModal();render();toast(isNew?"Project created":"Project saved");
+  });
+  let pending=null;
+  const doLookup=()=>{
+    const raw=$("#f-eircode").value.trim(), msg=$("#geo-msg");
+    if(!ECODE.test(raw)){msg.innerHTML=`<span style="color:var(--bad)">That isn't a valid Eircode. It should look like Y35 R2K8.</span>`;return;}
+    const code=fmtE(raw); $("#f-eircode").value=code; msg.textContent="Looking up…";
+    const show=r=>{
+      if(!r){pending=null;msg.innerHTML=CONFIG.googleMapsKey?`No address found for that Eircode. Check it and type the address.`:`No match in the demo data. Add a Google key in the settings for live lookups. Type the address for now.`;return;}
+      pending={code,lat:r.lat,lng:r.lng};
+      $("#f-address").value=r.a;
+      msg.innerHTML=`${r.q==="exact"?`<span style="color:var(--ok);font-weight:600">Address found.</span>`:`<span style="color:var(--warn);font-weight:600">Approximate match.</span> Add the house name before saving.`} <span class="mono">${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}</span> · <a href="https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lng}" target="_blank" rel="noopener">Check the pin</a>`;
+    };
+    if(CONFIG.googleMapsKey){
+      fetch("https://maps.googleapis.com/maps/api/geocode/json?components=country:IE&address="+encodeURIComponent(code)+"&key="+encodeURIComponent(CONFIG.googleMapsKey))
+        .then(r=>r.json()).then(j=>{
+          const g=j.results&&j.results[0];
+          if(!g){show(null);return;}
+          const exact=(g.types||[]).some(t=>["street_address","premise","subpremise"].includes(t));
+          show({a:g.formatted_address.replace(/, Ireland$/,""),lat:g.geometry.location.lat,lng:g.geometry.location.lng,q:exact?"exact":"approximate"});
+        }).catch(()=>{msg.innerHTML=`<span style="color:var(--bad)">The address lookup didn't respond. Type the address for now.</span>`;});
+    }else setTimeout(()=>show(GEO[code.replace(/\s/g,"")]),450);
+  };
+  $("#modal [data-lookup]").addEventListener("click",doLookup);
+  $("#f-eircode").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();doLookup();}});
+  (isNew?$("#f-eircode"):$("#f-customer")).focus();
+}
+function fmtE(s){s=String(s||"").replace(/\s/g,"").toUpperCase();return s.length===7?s.slice(0,3)+" "+s.slice(3):s;}
+function closeModal(){$("#modal").innerHTML="";}
+
+V.measurements=()=>{
+  const pid=ui.selMeas, p=proj(pid), m=D.measurements[pid];
+  const body=!m?`<p class="empty">No measurements for this project yet. <button class="btn sm" data-add-meas>Start measurements</button></p>`:`
+  <div class="grid g2">
+    <section class="panel"><h2>Elevations</h2><p class="sub">Net area = width × height − openings (windows and doors).</p>
+      <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Elevation</th><th class="num">Width m</th><th class="num">Height m</th><th class="num">Openings m²</th><th class="num">Net m²</th><th></th></tr></thead><tbody>
+      ${m.elev.map((e,i)=>`<tr><td><input id="e-n-${i}" data-elev="${i}" data-k="n" value="${esc(e.n)}"></td>${["w","h","o"].map(k=>`<td><input id="e-${k}-${i}" type="number" step="0.1" min="0" data-elev="${i}" data-k="${k}" value="${e[k]}" style="max-width:90px;margin-left:auto;display:block"></td>`).join("")}<td class="num" id="net-${i}">${net(e).toFixed(2)}</td><td><button class="btn sm" data-del-elev="${i}" aria-label="Remove ${esc(e.n)}">✕</button></td></tr>`).join("")}
+      <tr><td colspan="4"><b>Total insulated area</b></td><td class="num"><b id="netT">${area(pid).toFixed(2)}</b></td><td></td></tr>
+      </tbody></table></div>
+      <button class="btn sm" data-add-elev style="margin-top:10px">Add elevation</button>
+    </section>
+    <section class="panel"><h2>Specification</h2>
+      <div class="form" style="margin-top:10px">
+        <label class="f">Insulation thickness<select id="m-thickness" data-mk="thickness">${Object.keys(D.rates).map(t=>`<option value="${t}" ${t===m.thickness?"selected":""}>${t} mm</option>`).join("")}</select></label>
+        <label class="f">System<input id="m-system" data-mk="system" value="${esc(m.system)}"></label>
+        <label class="f">Window cills (each)<input id="m-cills" type="number" min="0" data-mk="cills" value="${m.cills}"></label>
+        <label class="f">Beads (lm)<input id="m-bead" type="number" min="0" data-mk="bead" value="${m.bead}"></label>
+        <label class="f" style="flex-direction:row;align-items:center;gap:8px"><input id="m-scaffold" type="checkbox" data-mk="scaffold" ${m.scaffold?"checked":""} style="width:auto">Scaffolding needed</label>
+        <label class="f" style="flex-direction:row;align-items:center;gap:8px"><input id="m-fixtures" type="checkbox" data-mk="fixtures" ${m.fixtures?"checked":""} style="width:auto">Remove and refit fixtures</label>
+      </div>
+      <p class="sub" style="margin-top:14px">Feeds the quote and the materials estimate automatically.</p>
+      <div class="row" style="margin-top:10px"><button class="btn" data-jump="quotes" data-pid="${pid}">View quote</button><button class="btn" data-jump="materials" data-pid="${pid}">Materials estimate</button></div>
+    </section>
+  </div>`;
+  return `<div class="head"><div><h1>Measurements</h1><p class="sub">${p?esc(p.address):""}</p></div><label class="f" style="min-width:260px">Project<select id="sel-meas" data-sel="selMeas">${projOpts(pid)}</select></label></div>${body}`;
+};
+
+V.quotes=()=>{
+  const pid=ui.selQuote, p=proj(pid), q=quote(pid);
+  const rates=`<section class="panel" style="max-width:760px;margin-top:16px"><h2>Rates</h2><p class="sub">Sample rates. Changing a rate updates every quote.</p>
+    <div class="form" style="margin-top:10px">
+      ${Object.keys(D.rates).map(t=>`<label class="f">EWI ${t}mm (€/m²)<input id="r-${t}" type="number" step="0.5" data-rate="${t}" value="${D.rates[t]}"></label>`).join("")}
+      <label class="f">Window cill (€ each)<input id="r-cill" type="number" data-xrate="cill" value="${D.extraRates.cill}"></label>
+      <label class="f">Beads (€/lm)<input id="r-bead" type="number" step="0.1" data-xrate="bead" value="${D.extraRates.bead}"></label>
+      <label class="f">Scaffolding (€/job)<input id="r-scaffold" type="number" data-xrate="scaffold" value="${D.extraRates.scaffold}"></label>
+      <label class="f">Fixtures (€/job)<input id="r-fixtures" type="number" data-xrate="fixtures" value="${D.extraRates.fixtures}"></label>
+      <label class="f">VAT %<input id="r-vat" type="number" step="0.5" data-vat value="${D.vat}"></label>
+    </div></section>`;
+  const sheet=!q?`<p class="empty">Add measurements to price this project.</p>`:`<div class="sheet">
+    <div class="top"><div><div class="co">GHT</div><div class="muted" style="font-size:13px;margin-top:4px">External Wall Insulation · Co. Wexford</div></div>
+    <div style="text-align:right"><div style="font-family:var(--display);font-size:22px;font-weight:600">QUOTATION</div><div class="mono">${esc(p.ref)}-Q1</div><div class="mono muted">${TODAY.toLocaleDateString("en-IE")}</div></div></div>
+    <div style="margin-bottom:16px"><div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.07em">Prepared for</div><b>${esc(p.customer)}</b><br>${esc(p.address)}<br><span class="mono">${esc(p.eircode)}</span></div>
+    <div class="tablewrap"><table><thead><tr><th>Description</th><th class="num">Qty</th><th>Unit</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>
+    ${q.lines.map(l=>`<tr><td>${esc(l.d)}</td><td class="num">${l.u==="m²"?l.q.toFixed(2):l.q}</td><td>${l.u}</td><td class="num">${eur(l.r)}</td><td class="num">${eur(l.t)}</td></tr>`).join("")}
+    <tr><td colspan="4" style="text-align:right">Subtotal ex VAT</td><td class="num">${eur(q.sub)}</td></tr>
+    <tr><td colspan="4" style="text-align:right">VAT at ${D.vat}%</td><td class="num">${eur(q.vat)}</td></tr>
+    <tr class="tot"><td colspan="4" style="text-align:right">Total</td><td class="num">${eur(q.total)}</td></tr>
+    </tbody></table></div>
+    <p class="muted" style="font-size:13px;margin-top:16px">Valid for 30 days. Area measured on site: ${q.area.toFixed(2)} m² net of openings. Any SEAI grant is paid to the homeowner and is not deducted from this quotation.</p>
+  </div>`;
+  return `<div class="head"><div><h1>Quotes</h1><p class="sub">Priced from measurements × rates. Use Print and choose Save as PDF.</p></div><label class="f" style="min-width:260px">Project<select id="sel-quote" data-sel="selQuote">${projOpts(pid)}</select></label></div>
+  <div class="row" style="margin-bottom:12px"><button class="btn" data-jump="measurements" data-pid="${pid}">Edit measurements</button><button class="btn primary" data-pdf>Print / save as PDF</button></div>
+  ${sheet}${rates}`;
+};
+
+V.teams=()=>`<div class="head"><div><h1>Teams</h1><p class="sub">Employees and subcontractors, and the jobs they're on.</p></div></div>
+  <div class="grid g2">${D.teams.map(t=>{const jobs=D.projects.filter(p=>p.team===t.id&&p.status!=="Completed");return `<section class="panel">
+    <div class="row" style="justify-content:space-between"><h2><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${t.color};margin-right:8px"></span>${esc(t.name)}</h2><span class="pill ${t.type==="Subcontractor"?"s-Quoted":"s-Scheduled"}">${t.type}</span></div>
+    <p class="sub">${esc(t.role)} · Lead: ${esc(t.lead)}</p>
+    <p style="margin:8px 0 0;font-size:14px">${t.members.map(esc).join(", ")}</p>
+    <ul class="list">${jobs.length?jobs.map(p=>`<li><span><b>${esc(p.customer)}</b> <span class="muted mono" style="font-size:12.5px">${fmtD(p.start)} → ${fmtD(p.end)}</span></span>${pill(p.status)}</li>`).join(""):`<li class="muted">No active jobs</li>`}</ul>
+    <div class="row" style="margin-top:10px"><label class="f" style="flex:1">Assign to project<select id="assign-${t.id}">${`<option value="">Choose a project…</option>`+D.projects.filter(p=>p.team!==t.id&&p.status!=="Completed").map(p=>`<option value="${p.id}">${esc(p.ref)} · ${esc(p.customer)}</option>`).join("")}</select></label><button class="btn" data-assign="${t.id}" style="align-self:end">Assign</button></div>
+  </section>`;}).join("")}</div>`;
+
+V.materials=()=>{
+  const pid=ui.selMat, list=D.materials[pid]||[], a=area(pid);
+  return `<div class="head"><div><h1>Materials</h1><p class="sub">Quantities, suppliers, orders and delivery status.</p></div><label class="f" style="min-width:260px">Project<select id="sel-mat" data-sel="selMat">${projOpts(pid)}</select></label></div>
+  <div class="row" style="margin-bottom:12px"><button class="btn" data-est>Estimate from ${a.toFixed(0)} m²</button><button class="btn" data-add-mat>Add line</button></div>
+  <div class="panel tablewrap"><table><thead><tr><th>Material</th><th class="num">Qty</th><th>Unit</th><th>Supplier</th><th>Status</th><th></th></tr></thead><tbody>
+  ${list.length?list.map((m,i)=>`<tr><td><input id="mt-item-${i}" data-mat="${i}" data-k="item" value="${esc(m.item)}"></td><td><input id="mt-qty-${i}" type="number" data-mat="${i}" data-k="qty" value="${m.qty}" style="max-width:90px;margin-left:auto;display:block"></td><td><input id="mt-unit-${i}" data-mat="${i}" data-k="unit" value="${esc(m.unit)}" style="max-width:80px"></td><td><input id="mt-sup-${i}" data-mat="${i}" data-k="supplier" value="${esc(m.supplier)}"></td><td><select id="mt-st-${i}" data-mat="${i}" data-k="status">${MAT_STATUS.map(s=>`<option ${s===m.status?"selected":""}>${s}</option>`).join("")}</select></td><td>${pill(m.status,"m")}</td></tr>`).join(""):`<tr><td colspan="6"><p class="empty">No materials yet. Estimate from the measured area or add a line.</p></td></tr>`}
+  </tbody></table></div>
+  <p class="muted" style="font-size:13px;margin-top:10px">Estimates add 10% waste on boards and mesh. Check coverage against the system manufacturer's data sheet.</p>`;
+};
+
+V.documents=()=>{
+  const pid=ui.selDoc, d=D.docs[pid]||{}, dc=docCount(pid);
+  return `<div class="head"><div><h1>SEAI / NSAI Documents</h1><p class="sub">Compliance file for grant claims and warranties.</p></div><label class="f" style="min-width:260px">Project<select id="sel-doc" data-sel="selDoc">${projOpts(pid)}</select></label></div>
+  <div class="panel" style="margin-bottom:12px"><div class="row" style="justify-content:space-between"><b>${dc.got} of ${dc.total} complete</b><span class="muted">${dc.got===dc.total?"Ready for grant claim":"Outstanding items block the SEAI claim"}</span></div><div class="bar" style="margin-top:8px"><i style="width:${dc.got/dc.total*100}%"></i></div></div>
+  <div class="panel tablewrap"><table><thead><tr><th>Document</th><th>Status</th><th>File</th><th></th></tr></thead><tbody>
+  ${DOC_TYPES.map((t,i)=>{const x=d[t]||{s:"Missing"};return `<tr><td><b>${esc(t)}</b></td><td>${pill(x.s==="N/A"?"N/A":x.s,"d")}</td><td class="mono" style="word-break:break-all">${x.f?esc(x.f):"—"}</td><td><div class="row"><label class="btn sm" for="up-${i}" style="cursor:pointer">Upload</label><input id="up-${i}" type="file" data-up="${esc(t)}" hidden><button class="btn sm" data-na="${esc(t)}">${x.s==="N/A"?"Required":"Not needed"}</button></div></td></tr>`;}).join("")}
+  </tbody></table></div>
+  <p class="muted" style="font-size:13px;margin-top:10px">Prototype records the file name only. The live system stores files in the project's Google Drive folder.</p>`;
+};
+
+V.calendar=()=>{
+  const m=ui.calMonth, y=m.getFullYear(), mo=m.getMonth();
+  const first=new Date(y,mo,1), startOff=(first.getDay()+6)%7, start=new Date(y,mo,1-startOff);
+  let cells="";
+  for(let i=0;i<42;i++){
+    const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i), ds=iso(d), wk=d.getDay()===0||d.getDay()===6;
+    const ev=wk?[]:D.projects.filter(p=>p.start&&p.end&&p.start<=ds&&ds<=p.end&&p.status!=="Enquiry");
+    cells+=`<div class="day ${d.getMonth()!==mo?"out":""} ${ds===TODAY_ISO?"today":""}"><span class="dn">${d.getDate()}</span>${ev.map(p=>`<div class="ev" style="background:${team(p.team)?.color||"#6b7570"}" title="${esc(p.customer)} · ${esc(team(p.team)?.name||"No team")}">${esc(p.customer.split(" ").slice(-1)[0])}</div>`).join("")}</div>`;
+  }
+  const deadlines=D.projects.filter(p=>p.end&&new Date(p.end+"T00:00").getMonth()===mo&&new Date(p.end+"T00:00").getFullYear()===y).sort((a,b)=>a.end.localeCompare(b.end));
+  return `<div class="head"><div><h1>Calendar</h1><p class="sub">Working days on site, coloured by team.</p></div>
+  <div class="row"><button class="btn" data-cal="-1" aria-label="Previous month">‹</button><b style="min-width:140px;text-align:center;font-family:var(--display);font-size:20px">${m.toLocaleDateString("en-IE",{month:"long",year:"numeric"})}</b><button class="btn" data-cal="1" aria-label="Next month">›</button></div></div>
+  <div class="tablewrap"><div class="cal" style="min-width:560px">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=>`<div class="dow">${d}</div>`).join("")}${cells}</div></div>
+  <div class="legend">${D.teams.map(t=>`<span><i style="background:${t.color}"></i>${esc(t.name)}</span>`).join("")}<span><i style="background:#6b7570"></i>Not assigned</span></div>
+  <section class="panel" style="margin-top:16px"><h2>Completions due this month</h2>${deadlines.length?`<ul class="list">${deadlines.map(p=>`<li><span><b>${esc(p.customer)}</b> <span class="muted">${esc(team(p.team)?.name||"No team")}</span></span><span class="row"><span class="mono">${fmtD(p.end)}</span>${pill(p.status)}</span></li>`).join("")}</ul>`:`<p class="empty">No completions due.</p>`}</section>`;
+};
+
+function render(){renderRail();$("#main").innerHTML=V[view]();}
+
+// ---------- events ----------
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button,a,tr,label,.dlg");if(!t)return;
+  if(t.dataset.stop!==undefined){e.stopPropagation();return;}
+  if(t.dataset.go){go(t.dataset.go);return;}
+  if(t.dataset.closeBg!==undefined&&e.target===t){closeModal();return;}
+  if(t.dataset.close!==undefined){closeModal();return;}
+  if(t.dataset.goto){const pid=t.dataset.open;ui.selDoc=ui.selMat=ui.selQuote=ui.selMeas=pid;go(t.dataset.goto);return;}
+  if(t.dataset.open){if(e.target.closest("[data-stop]"))return;projectDialog(proj(t.dataset.open));return;}
+  if(t.dataset.newProj!==undefined){projectDialog(null);return;}
+  if(t.dataset.pfilter){ui.projFilter=t.dataset.pfilter;render();return;}
+  if(t.dataset.jump){const pid=t.dataset.pid;ui.selDoc=ui.selMat=ui.selQuote=ui.selMeas=pid;closeModal();go(t.dataset.jump);return;}
+  if(t.dataset.addElev!==undefined){D.measurements[ui.selMeas].elev.push({n:"Elevation",w:0,h:0,o:0});save();render();return;}
+  if(t.dataset.delElev){D.measurements[ui.selMeas].elev.splice(+t.dataset.delElev,1);save();render();return;}
+  if(t.dataset.addMeas!==undefined){D.measurements[ui.selMeas]={thickness:"150",system:"EPS graphite, silicone render",elev:[{n:"Front",w:0,h:0,o:0},{n:"Rear",w:0,h:0,o:0},{n:"Gable",w:0,h:0,o:0}],cills:0,bead:0,scaffold:false,fixtures:false};save();render();return;}
+  if(t.dataset.pdf!==undefined){document.body.classList.add("pq");window.print();return;}
+  if(t.dataset.assign){const sel=$("#assign-"+t.dataset.assign);if(!sel.value){toast("Choose a project first");return;}const p=proj(sel.value);p.team=t.dataset.assign;save();render();toast(`${team(p.team).name} assigned to ${p.customer}`);return;}
+  if(t.dataset.addMat!==undefined){(D.materials[ui.selMat]=D.materials[ui.selMat]||[]).push({item:"",qty:0,unit:"",supplier:"",status:"To order"});save();render();return;}
+  if(t.dataset.est!==undefined){
+    const m=D.measurements[ui.selMat];if(!m){toast("Add measurements first");return;}
+    const a=area(ui.selMat),th=m.thickness,mw=m.system.toLowerCase().includes("mineral");
+    D.materials[ui.selMat]=[
+      {item:`${th}mm ${mw?"mineral wool slab":"EPS board"}`,qty:Math.ceil(a*1.1),unit:"m²",supplier:mw?"Rockwool via Chadwicks":"Kingspan Insulation",status:"To order"},
+      {item:"Adhesive / base coat (25kg)",qty:Math.ceil(a/5),unit:"bags",supplier:"Chadwicks Wexford",status:"To order"},
+      {item:"Fibreglass mesh",qty:Math.ceil(a*1.1),unit:"m²",supplier:"Chadwicks Wexford",status:"To order"},
+      {item:"Mechanical fixings",qty:Math.ceil(a*6),unit:"each",supplier:"Chadwicks Wexford",status:"To order"},
+      {item:"Silicone render (25kg)",qty:Math.ceil(a/8),unit:"tubs",supplier:"Baumit Ireland",status:"To order"},
+      {item:"PVC corner and stop beads",qty:+m.bead||0,unit:"lm",supplier:"Chadwicks Wexford",status:"To order"},
+      {item:"Aluminium window cills",qty:+m.cills||0,unit:"each",supplier:"Wexford Aluminium",status:"To order"}
+    ].filter(x=>x.qty>0);
+    save();render();toast("Materials estimated from measurements");return;
+  }
+  if(t.dataset.na){const d=(D.docs[ui.selDoc]=D.docs[ui.selDoc]||{});const k=t.dataset.na;d[k]=d[k]&&d[k].s==="N/A"?{s:"Missing"}:{s:"N/A"};save();render();return;}
+  if(t.dataset.cal){ui.calMonth=new Date(ui.calMonth.getFullYear(),ui.calMonth.getMonth()+ +t.dataset.cal,1);render();return;}
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset.sel){ui[t.dataset.sel]=t.value;render();return;}
+  if(t.dataset.up){const f=t.files&&t.files[0];if(!f)return;(D.docs[ui.selDoc]=D.docs[ui.selDoc]||{})[t.dataset.up]={s:"Received",f:f.name};save();render();toast("Document recorded");return;}
+  if(t.dataset.mat!==undefined&&t.dataset.k==="status"){D.materials[ui.selMat][+t.dataset.mat].status=t.value;save();render();return;}
+  if(t.dataset.mk&&(t.type==="checkbox"||t.tagName==="SELECT")){const m=D.measurements[ui.selMeas];m[t.dataset.mk]=t.type==="checkbox"?t.checked:t.value;save();toast("Saved");return;}
+  if(t.dataset.rate||t.dataset.xrate||t.dataset.vat!==undefined){save();render();toast("Rates updated");}
+});
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.dataset.elev!==undefined){const i=+t.dataset.elev,el=D.measurements[ui.selMeas].elev[i];el[t.dataset.k]=t.dataset.k==="n"?t.value:(parseFloat(t.value)||0);const c=$("#net-"+i);if(c)c.textContent=net(el).toFixed(2);$("#netT").textContent=area(ui.selMeas).toFixed(2);save();return;}
+  if(t.dataset.mk&&t.type!=="checkbox"&&t.tagName!=="SELECT"){const m=D.measurements[ui.selMeas];m[t.dataset.mk]=t.type==="number"?(parseFloat(t.value)||0):t.value;save();return;}
+  if(t.dataset.mat!==undefined&&t.dataset.k!=="status"){const r=D.materials[ui.selMat][+t.dataset.mat];r[t.dataset.k]=t.dataset.k==="qty"?(parseFloat(t.value)||0):t.value;save();return;}
+  if(t.dataset.rate){D.rates[t.dataset.rate]=parseFloat(t.value)||0;return;}
+  if(t.dataset.xrate){D.extraRates[t.dataset.xrate]=parseFloat(t.value)||0;return;}
+  if(t.dataset.vat!==undefined){D.vat=parseFloat(t.value)||0;return;}
+});
+render();
+
+// ---------- assistant (asks Claude through the viewer's account) ----------
+const chatEl=$("#chat"), log=$("#chatLog"), inp=$("#chatIn"), sendBtn=$("#chatSend"), fab=$("#chatOpen");
+let sampleFn, turns=[], ctl=null;
+const openChat=o=>{chatEl.hidden=!o;fab.hidden=o;fab.setAttribute("aria-expanded",String(o));if(o)inp.focus();};
+fab.addEventListener("click",()=>openChat(true));
+$("#chatClose").addEventListener("click",()=>{openChat(false);fab.focus();});
+function snapshot(){
+  return JSON.stringify({
+    today:TODAY_ISO,vatPercent:D.vat,ratesPerM2ByThicknessMm:D.rates,extraRates:D.extraRates,
+    teams:D.teams.map(t=>({name:t.name,type:t.type,lead:t.lead,members:t.members,role:t.role})),
+    projects:D.projects.map(p=>{const q=quote(p.id),dc=docCount(p.id),d=D.docs[p.id]||{};return{
+      ref:p.ref,customer:p.customer,phone:p.phone,address:p.address,eircode:p.eircode,status:p.status,start:p.start||null,completion:p.end||null,
+      team:team(p.team)?.name||null,notes:p.notes,netAreaM2:q?+q.area.toFixed(2):null,
+      spec:D.measurements[p.id]?{thicknessMm:D.measurements[p.id].thickness,system:D.measurements[p.id].system}:null,
+      quoteExVat:q?+q.sub.toFixed(2):null,quoteIncVat:q?+q.total.toFixed(2):null,
+      documentsComplete:`${dc.got}/${dc.total}`,missingDocuments:DOC_TYPES.filter(t=>!d[t]||d[t].s==="Missing"),
+      materials:(D.materials[p.id]||[]).map(m=>({item:m.item,qty:m.qty,unit:m.unit,supplier:m.supplier,status:m.status}))};})
+  });
+}
+const RULES=()=>`You are GHT Assistant, built into the job management system of GHT, an external wall insulation contractor in Co. Wexford, Ireland. Office and site staff ask you about their jobs.
+Answer ONLY from the DATA below, which is the live state of the system. If the data doesn't hold the answer, say so plainly. Never invent jobs, people, figures or dates.
+Write short, plain answers for a busy office: a sentence or two, or a short list using "- " lines. No markdown headings, no bold, no tables. Money in euro like €12,345.00. Dates like 26 Oct. Refer to jobs by customer name and ref.
+You cannot change anything. If asked to change data, say which screen to use: Projects, Quotes, Measurements, Teams, Materials, SEAI / NSAI Docs or Calendar.
+DATA:
+${snapshot()}`;
+function bubble(cls,text){const b=document.createElement("div");b.className="msg "+cls;b.textContent=text;log.appendChild(b);log.scrollTop=log.scrollHeight;return b;}
+const ERR={not_granted:"The assistant needs your permission to use Claude. Reopen the page to be asked again.",sampling_disabled:"Claude isn't available on this account.",rate_limited:"Too many questions just now. Try again in a minute.",session_expired:"Your Claude session has expired. Sign in again and reload.",refused:"I can't answer that one. Try rephrasing.",empty_completion:"No answer came back. Try asking more simply.",prompt_too_large:"There's too much data to read at once.",upstream_error:"The connection dropped. Send the question again."};
+async function ask(q){
+  q=q.trim(); if(!q) return;
+  if(ctl){ctl.abort();return;}
+  if(!sampleFn&&!CONFIG.chatEndpoint){bubble("err","The assistant isn't set up on this site yet.");return;}
+  $("#chatSugg").hidden=true;
+  bubble("u",q); inp.value="";
+  turns.push({role:"user",content:q});
+  if(turns.length>12) turns=turns.slice(-12);
+  while(turns.length&&turns[0].role!=="user") turns.shift();
+  const out=bubble("a wait","Thinking…");
+  ctl=new AbortController(); sendBtn.textContent="Stop";
+  try{
+    let text,truncated=false;
+    if(sampleFn){
+      ({text,truncated}=await sampleFn([{role:"user",content:RULES()},...turns],{cache:false,modelTier:"quick",signal:ctl.signal,onText:({text})=>{out.classList.remove("wait");out.textContent=text;log.scrollTop=log.scrollHeight;}}));
+    }else{
+      let r;
+      try{r=await fetch(CONFIG.chatEndpoint,{method:"POST",headers:{"content-type":"application/json"},signal:ctl.signal,body:JSON.stringify({model:CONFIG.chatModel,max_tokens:800,system:RULES(),messages:turns})});}
+      catch(err){throw {code:err&&err.name==="AbortError"?"cancelled":"upstream_error"};}
+      if(r.status===429) throw {code:"rate_limited"};
+      if(!r.ok) throw {code:"upstream_error"};
+      const j=await r.json();
+      text=(j.content||[]).filter(c=>c.type==="text").map(c=>c.text).join("").trim();
+      truncated=j.stop_reason==="max_tokens";
+      if(!text) throw {code:"empty_completion"};
+    }
+    out.classList.remove("wait"); out.textContent=text+(truncated?"\n\n(Answer cut short. Ask a narrower question.)":"");
+    turns.push({role:"assistant",content:text});
+  }catch(e){
+    out.classList.remove("wait");
+    if(e&&e.text&&e.code!=="refused"){out.textContent=e.text;}else{out.remove();}
+    if(!e||e.code!=="cancelled") bubble("err",ERR[e&&e.code]||ERR.upstream_error);
+    turns.pop();
+    if(e&&["not_granted","sampling_disabled","not_declared","capability_disabled"].includes(e.code)){inp.disabled=true;sendBtn.disabled=true;}
+  }finally{ctl=null;sendBtn.textContent="Send";log.scrollTop=log.scrollHeight;}
+}
+$("#chatForm").addEventListener("submit",e=>{e.preventDefault();ask(ctl?"x":inp.value);});
+$("#chatSugg").addEventListener("click",e=>{const b=e.target.closest("[data-q]");if(b)ask(b.dataset.q);});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!chatEl.hidden&&!$("#modal").innerHTML)openChat(false);});
+(async()=>{try{sampleFn=window.claude?await window.claude.use("sample"):null;}catch(e){sampleFn=null;}if(!sampleFn&&!CONFIG.chatEndpoint){fab.hidden=true;chatEl.hidden=true;}})();
+window.addEventListener("afterprint",()=>document.body.classList.remove("pq"));
+$("#resetDemo").addEventListener("click",()=>{if($("#resetDemo").dataset.armed){D=seed();save();delete $("#resetDemo").dataset.armed;$("#resetDemo").textContent="Reset";render();toast("Demo data reset");}else{$("#resetDemo").dataset.armed="1";$("#resetDemo").textContent="Click again to reset";setTimeout(()=>{const b=$("#resetDemo");if(b&&b.dataset.armed){delete b.dataset.armed;b.textContent="Reset";}},4000);}});
+})();
+</script>
+
+</body>
+</html>
